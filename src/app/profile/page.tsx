@@ -1,13 +1,13 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "@/lib/auth-client";
 import Navigation from "@/components/Navigation";
 import { toast } from "sonner";
 import { useDropzone } from "react-dropzone";
 import { motion, AnimatePresence } from "framer-motion";
-import { Upload, Video as VideoIcon, Eye, Trash2, Edit, X, Check, PlayCircle, Loader2 } from "lucide-react";
+import { Upload, Video as VideoIcon, Eye, Trash2, Edit, X, Check, PlayCircle, Loader2, User, MapPin, Building2, TrendingUp, DollarSign, Globe } from "lucide-react";
 
 interface Profile {
   id: number;
@@ -15,6 +15,20 @@ interface Profile {
   role: string;
   profilePicture: string | null;
   bio: string | null;
+  entrepreneurProfile?: {
+    startupName: string;
+    businessDescription: string;
+    industry: string;
+    fundingStage: string;
+    location: string;
+    website: string | null;
+  };
+  investorProfile?: {
+    investmentPreferences: string;
+    industryFocus: string;
+    fundingCapacity: string;
+    location: string;
+  };
 }
 
 interface Video {
@@ -47,64 +61,76 @@ export default function ProfilePage() {
     }
   }, [session, isPending, router]);
 
-  useEffect(() => {
-    const fetchProfile = async () => {
-      if (!session?.user) return;
+  const fetchProfile = useCallback(async () => {
+    if (!session?.user) return;
 
-      try {
-        const token = localStorage.getItem("bearer_token");
-        const response = await fetch("/api/profiles/me", {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
+    try {
+      const token = localStorage.getItem("bearer_token");
+      const response = await fetch("/api/profiles/me", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
 
-        if (response.ok) {
-          const data = await response.json();
-          setProfile(data);
-
-          // Fetch videos if entrepreneur
-          if (data.role === "entrepreneur") {
-            const videosResponse = await fetch(`/api/videos/profile/${data.id}`, {
-              headers: {
-                Authorization: `Bearer ${token}`,
-              },
-            });
-
-            if (videosResponse.ok) {
-              const videosData = await videosResponse.json();
-              setVideos(videosData);
-            }
+      if (response.ok) {
+        const data = await response.json();
+        
+        // Fetch entrepreneur or investor details
+        if (data.role === "entrepreneur") {
+          const entrepreneurResponse = await fetch(`/api/entrepreneur-profiles/${data.id}`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (entrepreneurResponse.ok) {
+            const entrepreneurData = await entrepreneurResponse.json();
+            data.entrepreneurProfile = entrepreneurData;
+          }
+          
+          // Fetch videos
+          const videosResponse = await fetch(`/api/videos/profile/${data.id}`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (videosResponse.ok) {
+            const videosData = await videosResponse.json();
+            setVideos(videosData);
+          }
+        } else if (data.role === "investor") {
+          const investorResponse = await fetch(`/api/investor-profiles/${data.id}`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (investorResponse.ok) {
+            const investorData = await investorResponse.json();
+            data.investorProfile = investorData;
           }
         }
-      } catch (error) {
-        toast.error("Failed to load profile");
-      } finally {
-        setIsLoading(false);
+        
+        setProfile(data);
       }
-    };
-
-    fetchProfile();
+    } catch (error) {
+      toast.error("Failed to load profile");
+    } finally {
+      setIsLoading(false);
+    }
   }, [session]);
+
+  useEffect(() => {
+    fetchProfile();
+  }, [fetchProfile]);
 
   const handleFileSelect = useCallback((acceptedFiles: File[]) => {
     if (acceptedFiles.length === 0) return;
 
     const file = acceptedFiles[0];
     
-    // Validate file type
     if (!file.type.startsWith("video/")) {
       toast.error("Please upload a video file");
       return;
     }
 
-    // Validate file size (500MB)
     if (file.size > 500 * 1024 * 1024) {
       toast.error("Video must be less than 500MB");
       return;
     }
 
-    // Create video element to validate duration
     const video = document.createElement("video");
     video.preload = "metadata";
     
@@ -118,7 +144,6 @@ export default function ProfilePage() {
         return;
       }
       
-      // Set file and preview
       setSelectedFile(file);
       setVideoPreview(URL.createObjectURL(file));
       toast.success("Video loaded successfully - ready to upload!");
@@ -143,16 +168,14 @@ export default function ProfilePage() {
     multiple: false,
   });
 
-  const handleUpload = async () => {
+  const handleUpload = useCallback(async () => {
     if (!selectedFile || !profile) return;
 
-    // Validate title
     if (!videoTitle.trim()) {
       toast.error("Please enter a video title");
       return;
     }
 
-    // Validate not placeholder
     const lowerTitle = videoTitle.toLowerCase();
     if (lowerTitle.includes("test") || lowerTitle.includes("lorem") || lowerTitle === "untitled") {
       toast.error("Please provide a meaningful title for your video");
@@ -163,14 +186,12 @@ export default function ProfilePage() {
     setUploadProgress(0);
 
     try {
-      // Prepare form data
       const formData = new FormData();
       formData.append("file", selectedFile);
       formData.append("profileId", profile.id.toString());
       formData.append("title", videoTitle.trim());
       formData.append("description", videoDescription.trim() || "");
 
-      // Simulate progress (since we can't track actual upload progress with fetch)
       const progressInterval = setInterval(() => {
         setUploadProgress(prev => {
           if (prev >= 90) {
@@ -200,10 +221,7 @@ export default function ProfilePage() {
 
       const result = await response.json();
       
-      // Add new video to list
       setVideos([result.video, ...videos]);
-      
-      // Reset form
       setVideoTitle("");
       setVideoDescription("");
       setSelectedFile(null);
@@ -217,17 +235,17 @@ export default function ProfilePage() {
       setIsUploading(false);
       setUploadProgress(0);
     }
-  };
+  }, [selectedFile, profile, videoTitle, videoDescription, videos]);
 
-  const handleCancelUpload = () => {
+  const handleCancelUpload = useCallback(() => {
     setSelectedFile(null);
     setVideoPreview(null);
     setVideoTitle("");
     setVideoDescription("");
     setUploadProgress(0);
-  };
+  }, []);
 
-  const handleDeleteVideo = async (videoId: number) => {
+  const handleDeleteVideo = useCallback(async (videoId: number) => {
     try {
       const token = localStorage.getItem("bearer_token");
       const response = await fetch(`/api/videos/${videoId}`, {
@@ -246,9 +264,9 @@ export default function ProfilePage() {
     } catch (error) {
       toast.error("An error occurred");
     }
-  };
+  }, [videos]);
 
-  const handleEditVideo = async () => {
+  const handleEditVideo = useCallback(async () => {
     if (!editingVideo) return;
 
     try {
@@ -276,7 +294,31 @@ export default function ProfilePage() {
     } catch (error) {
       toast.error("An error occurred");
     }
-  };
+  }, [editingVideo, videos]);
+
+  const profileDetails = useMemo(() => {
+    if (!profile) return null;
+    
+    if (profile.role === "entrepreneur" && profile.entrepreneurProfile) {
+      return [
+        { icon: Building2, label: "Startup", value: profile.entrepreneurProfile.startupName },
+        { icon: MapPin, label: "Location", value: profile.entrepreneurProfile.location },
+        { icon: TrendingUp, label: "Industry", value: profile.entrepreneurProfile.industry },
+        { icon: DollarSign, label: "Stage", value: profile.entrepreneurProfile.fundingStage || "Not specified" },
+        ...(profile.entrepreneurProfile.website ? [{ icon: Globe, label: "Website", value: profile.entrepreneurProfile.website }] : []),
+      ];
+    }
+    
+    if (profile.role === "investor" && profile.investorProfile) {
+      return [
+        { icon: MapPin, label: "Location", value: profile.investorProfile.location },
+        { icon: Building2, label: "Focus", value: profile.investorProfile.industryFocus },
+        { icon: DollarSign, label: "Capacity", value: profile.investorProfile.fundingCapacity || "Not specified" },
+      ];
+    }
+    
+    return null;
+  }, [profile]);
 
   if (isPending || isLoading) {
     return (
@@ -314,7 +356,7 @@ export default function ProfilePage() {
           </p>
         </motion.div>
 
-        {/* Profile Card */}
+        {/* Enhanced Profile Card */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -322,17 +364,75 @@ export default function ProfilePage() {
           className="mb-12 rounded-2xl border border-border/40 bg-card p-10 shadow-sm"
         >
           <div className="flex flex-col sm:flex-row items-center sm:items-start gap-8">
-            <div className="flex h-24 w-24 items-center justify-center rounded-full bg-gradient-to-br from-foreground/5 to-foreground/10 text-foreground font-light text-4xl">
-              {session.user.name?.charAt(0) || "U"}
+            {/* FIXED: Instant profile picture display */}
+            <div className="flex-shrink-0">
+              {profile.profilePicture ? (
+                <img
+                  src={profile.profilePicture}
+                  alt={session.user.name || "Profile"}
+                  className="h-24 w-24 rounded-full object-cover border-2 border-border/40"
+                />
+              ) : (
+                <div className="flex h-24 w-24 items-center justify-center rounded-full bg-gradient-to-br from-foreground/5 to-foreground/10 text-foreground font-light text-4xl border-2 border-border/40">
+                  {session.user.name?.charAt(0) || "U"}
+                </div>
+              )}
             </div>
+            
             <div className="flex-1 text-center sm:text-left">
               <h2 className="text-2xl font-light text-foreground tracking-wide">
                 {session.user.name}
               </h2>
-              <p className="text-muted-foreground capitalize mt-2 text-sm font-light tracking-wide">{profile.role}</p>
-              <p className="text-xs font-light text-muted-foreground mt-2 tracking-wide">{session.user.email}</p>
+              <p className="text-muted-foreground capitalize mt-2 text-sm font-light tracking-wide">
+                {profile.role}
+              </p>
+              <p className="text-xs font-light text-muted-foreground mt-2 tracking-wide">
+                {session.user.email}
+              </p>
+              
+              {/* FIXED: Complete user details */}
+              {profileDetails && (
+                <div className="mt-6 grid gap-3 sm:grid-cols-2">
+                  {profileDetails.map((detail, index) => (
+                    <motion.div
+                      key={detail.label}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.4, delay: 0.2 + index * 0.05 }}
+                      className="flex items-center gap-2 text-xs font-light tracking-wide"
+                    >
+                      <detail.icon className="h-3.5 w-3.5 text-muted-foreground" strokeWidth={1.5} />
+                      <span className="text-muted-foreground">{detail.label}:</span>
+                      <span className="text-foreground">{detail.value}</span>
+                    </motion.div>
+                  ))}
+                </div>
+              )}
+              
               {profile.bio && (
-                <p className="text-sm font-light text-muted-foreground mt-4 leading-relaxed tracking-wide">{profile.bio}</p>
+                <p className="text-sm font-light text-muted-foreground mt-6 leading-relaxed tracking-wide">
+                  {profile.bio}
+                </p>
+              )}
+              
+              {/* Additional entrepreneur details */}
+              {profile.role === "entrepreneur" && profile.entrepreneurProfile?.businessDescription && (
+                <div className="mt-6 p-4 rounded-xl border border-border/40 bg-background">
+                  <p className="text-xs font-light text-muted-foreground mb-2 tracking-wide">Business Description</p>
+                  <p className="text-sm font-light text-foreground leading-relaxed tracking-wide">
+                    {profile.entrepreneurProfile.businessDescription}
+                  </p>
+                </div>
+              )}
+              
+              {/* Additional investor details */}
+              {profile.role === "investor" && profile.investorProfile?.investmentPreferences && (
+                <div className="mt-6 p-4 rounded-xl border border-border/40 bg-background">
+                  <p className="text-xs font-light text-muted-foreground mb-2 tracking-wide">Investment Preferences</p>
+                  <p className="text-sm font-light text-foreground leading-relaxed tracking-wide">
+                    {profile.investorProfile.investmentPreferences}
+                  </p>
+                </div>
               )}
             </div>
           </div>
@@ -441,7 +541,6 @@ export default function ProfilePage() {
                       exit={{ opacity: 0, scale: 0.95 }}
                       className="space-y-6"
                     >
-                      {/* Video Preview */}
                       <div className="relative rounded-2xl overflow-hidden border border-border/40 bg-black">
                         <video
                           src={videoPreview}
@@ -457,7 +556,6 @@ export default function ProfilePage() {
                         </div>
                       </div>
 
-                      {/* Form Fields */}
                       <div className="space-y-4">
                         <div>
                           <label className="block text-xs font-light text-foreground mb-3 tracking-wide">
@@ -488,7 +586,6 @@ export default function ProfilePage() {
                         </div>
                       </div>
 
-                      {/* Upload Progress */}
                       {isUploading && (
                         <div className="space-y-3">
                           <div className="flex items-center justify-between text-sm">
@@ -510,7 +607,6 @@ export default function ProfilePage() {
                         </div>
                       )}
 
-                      {/* Action Buttons */}
                       <div className="flex gap-3">
                         <motion.button
                           whileHover={{ y: -1 }}

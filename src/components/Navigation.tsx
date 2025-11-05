@@ -12,7 +12,7 @@ import { SignOutModal } from "@/components/SignOutModal";
 export default function Navigation() {
   const pathname = usePathname();
   const router = useRouter();
-  const { data: session, refetch } = useSession();
+  const { data: session, isPending, refetch } = useSession();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isSignOutModalOpen, setIsSignOutModalOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -96,7 +96,7 @@ export default function Navigation() {
               </Link>
             </motion.div>
 
-            {session?.user && (
+            {!isPending && session?.user && (
               <>
                 {/* Desktop Navigation */}
                 <div className="hidden md:block">
@@ -167,7 +167,7 @@ export default function Navigation() {
               </>
             )}
 
-            {!session?.user && (
+            {!isPending && !session?.user && (
               <div className="flex items-center space-x-3">
                 <Link
                   href="/login"
@@ -185,12 +185,14 @@ export default function Navigation() {
                 </motion.div>
               </div>
             )}
+            
+            {isPending && <div className="w-32 h-10" />}
           </div>
         </div>
 
         {/* Mobile menu */}
         <AnimatePresence>
-          {session?.user && isMenuOpen && (
+          {!isPending && session?.user && isMenuOpen && (
             <motion.div
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: "auto" }}

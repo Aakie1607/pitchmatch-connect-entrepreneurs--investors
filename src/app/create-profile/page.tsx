@@ -21,6 +21,11 @@ import {
 
 type ProfileStep = 1 | 2 | 3 | 4;
 
+// Helper function to count words
+const countWords = (text: string): number => {
+  return text.trim().split(/\s+/).filter(word => word.length > 0).length;
+};
+
 export default function CreateProfilePage() {
   const router = useRouter();
   const { data: session, isPending } = useSession();
@@ -128,6 +133,12 @@ export default function CreateProfilePage() {
         }
         if (!basicInfo.bio.trim()) {
           toast.error("Bio is required");
+          return false;
+        }
+        // FIXED: Validate word count - minimum 250 words, no maximum
+        const wordCount = countWords(basicInfo.bio);
+        if (wordCount < 250) {
+          toast.error(`Bio must be at least 250 words. Current: ${wordCount} words`);
           return false;
         }
         return true;
@@ -456,6 +467,9 @@ export default function CreateProfilePage() {
     { number: 4, title: "Profile Photo", completed: currentStep > 4 },
   ];
 
+  // Calculate word count for bio
+  const bioWordCount = countWords(basicInfo.bio);
+
   return (
     <div className="flex min-h-screen flex-col bg-background">
       <div className="flex flex-1 items-center justify-center px-4 py-8 sm:px-6 lg:px-8">
@@ -637,18 +651,25 @@ export default function CreateProfilePage() {
 
                     <div>
                       <label className="block text-sm font-light text-foreground mb-2 tracking-wide">
-                        Bio *
+                        Bio * (Minimum 250 words)
                       </label>
                       <textarea
                         value={basicInfo.bio}
                         onChange={(e) => setBasicInfo({ ...basicInfo, bio: e.target.value })}
-                        rows={4}
+                        rows={8}
                         className="w-full rounded-xl border border-input bg-background px-4 py-3 text-sm font-light text-foreground placeholder-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 tracking-wide"
-                        placeholder="Tell us about yourself and your goals..."
+                        placeholder="Tell us about yourself, your experience, achievements, and goals in detail..."
                       />
-                      <p className="mt-1 text-xs font-light text-muted-foreground tracking-wide">
-                        {basicInfo.bio.length} / 500 characters
-                      </p>
+                      <div className="mt-2 flex items-center justify-between">
+                        <p className={`text-xs font-light tracking-wide ${
+                          bioWordCount < 250 ? 'text-destructive' : 'text-muted-foreground'
+                        }`}>
+                          {bioWordCount} words {bioWordCount < 250 ? `(${250 - bioWordCount} more needed)` : '✓'}
+                        </p>
+                        <p className="text-xs font-light text-muted-foreground tracking-wide">
+                          No maximum limit
+                        </p>
+                      </div>
                     </div>
                   </div>
                 </motion.div>
