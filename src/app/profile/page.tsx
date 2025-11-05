@@ -5,10 +5,9 @@ import { useRouter } from "next/navigation";
 import { useSession } from "@/lib/auth-client";
 import Navigation from "@/components/Navigation";
 import { toast } from "sonner";
-import { supabase } from "@/lib/supabase";
 import { useDropzone } from "react-dropzone";
-import { motion } from "framer-motion";
-import { Upload, Video as VideoIcon, Eye, Trash2, Edit, X, Check } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Upload, Video as VideoIcon, Eye, Trash2, Edit, X, Check, PlayCircle, Loader2 } from "lucide-react";
 
 interface Profile {
   id: number;
@@ -39,6 +38,8 @@ export default function ProfilePage() {
   const [videoTitle, setVideoTitle] = useState("");
   const [videoDescription, setVideoDescription] = useState("");
   const [editingVideo, setEditingVideo] = useState<Video | null>(null);
+  const [videoPreview, setVideoPreview] = useState<string | null>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
   useEffect(() => {
     if (!isPending && !session?.user) {
@@ -86,9 +87,8 @@ export default function ProfilePage() {
     fetchProfile();
   }, [session]);
 
-  const onDrop = useCallback(async (acceptedFiles: File[]) => {
+  const handleFileSelect = useCallback((acceptedFiles: File[]) => {
     if (acceptedFiles.length === 0) return;
-    if (!profile) return;
 
     const file = acceptedFiles[0];
     
@@ -103,6 +103,48 @@ export default function ProfilePage() {
       toast.error("Video must be less than 500MB");
       return;
     }
+
+    // Create video element to validate duration
+    const video = document.createElement("video");
+    video.preload = "metadata";
+    
+    video.onloadedmetadata = () => {
+      window.URL.revokeObjectURL(video.src);
+      
+      if (video.duration < 3) {
+        toast.error("Video must be at least 3 seconds long");
+        setSelectedFile(null);
+        setVideoPreview(null);
+        return;
+      }
+      
+      // Set file and preview
+      setSelectedFile(file);
+      setVideoPreview(URL.createObjectURL(file));
+      toast.success("Video loaded successfully - ready to upload!");
+    };
+
+    video.onerror = () => {
+      toast.error("Invalid video file");
+      setSelectedFile(null);
+      setVideoPreview(null);
+    };
+
+    video.src = URL.createObjectURL(file);
+  }, []);
+
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop: handleFileSelect,
+    accept: {
+      "video/*": [".mp4", ".mov", ".avi", ".mkv", ".webm"],
+    },
+    maxFiles: 1,
+    disabled: isUploading || !profile,
+    multiple: false,
+  });
+
+  const handleUpload = async () => {
+    if (!selectedFile || !profile) return;
 
     // Validate title
     if (!videoTitle.trim()) {
@@ -121,71 +163,69 @@ export default function ProfilePage() {
     setUploadProgress(0);
 
     try {
-      // Upload to Supabase Storage
-      const fileExt = file.name.split(".").pop();
-      const fileName = `${profile.id}-${Date.now()}.${fileExt}`;
-      const filePath = `videos/${fileName}`;
+      // Prepare form data
+      const formData = new FormData();
+      formData.append("file", selectedFile);
+      formData.append("profileId", profile.id.toString());
+      formData.append("title", videoTitle.trim());
+      formData.append("description", videoDescription.trim() || "");
 
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from("pitch-videos")
-        .upload(filePath, file, {
-          onUploadProgress: (progress) => {
-            const percent = (progress.loaded / progress.total) * 100;
-            setUploadProgress(Math.round(percent));
-          },
+      // Simulate progress (since we can't track actual upload progress with fetch)
+      const progressInterval = setInterval(() => {
+        setUploadProgress(prev => {
+          if (prev >= 90) {
+            clearInterval(progressInterval);
+            return prev;
+          }
+          return prev + 10;
         });
+      }, 200);
 
-      if (uploadError) {
-        throw uploadError;
-      }
-
-      // Get public URL
-      const { data: urlData } = supabase.storage
-        .from("pitch-videos")
-        .getPublicUrl(filePath);
-
-      // Create video record
       const token = localStorage.getItem("bearer_token");
-      const response = await fetch("/api/videos", {
+      const response = await fetch("/api/upload/video", {
         method: "POST",
         headers: {
-          "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({
-          profileId: profile.id,
-          title: videoTitle.trim(),
-          description: videoDescription.trim() || null,
-          videoUrl: urlData.publicUrl,
-        }),
+        body: formData,
       });
 
+      clearInterval(progressInterval);
+      setUploadProgress(100);
+
       if (!response.ok) {
-        throw new Error("Failed to create video record");
+        const error = await response.json();
+        throw new Error(error.error || "Failed to upload video");
       }
 
-      const video = await response.json();
-      setVideos([video, ...videos]);
+      const result = await response.json();
+      
+      // Add new video to list
+      setVideos([result.video, ...videos]);
+      
+      // Reset form
       setVideoTitle("");
       setVideoDescription("");
+      setSelectedFile(null);
+      setVideoPreview(null);
+      
       toast.success("Video uploaded successfully!");
     } catch (error) {
       console.error(error);
-      toast.error("Failed to upload video");
+      toast.error((error as Error).message || "Failed to upload video");
     } finally {
       setIsUploading(false);
       setUploadProgress(0);
     }
-  }, [profile, videos, videoTitle, videoDescription]);
+  };
 
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop,
-    accept: {
-      "video/*": [".mp4", ".mov", ".avi", ".mkv", ".webm"],
-    },
-    maxFiles: 1,
-    disabled: isUploading,
-  });
+  const handleCancelUpload = () => {
+    setSelectedFile(null);
+    setVideoPreview(null);
+    setVideoTitle("");
+    setVideoDescription("");
+    setUploadProgress(0);
+  };
 
   const handleDeleteVideo = async (videoId: number) => {
     try {
@@ -318,83 +358,193 @@ export default function ProfilePage() {
 
               {/* Upload Form */}
               <div className="rounded-2xl border border-border/40 bg-card p-8 shadow-sm">
-                <div className="mb-8 space-y-6">
-                  <div>
-                    <label className="block text-xs font-light text-foreground mb-3 tracking-wide">
-                      Video Title *
-                    </label>
-                    <input
-                      type="text"
-                      value={videoTitle}
-                      onChange={(e) => setVideoTitle(e.target.value)}
-                      placeholder="Give your pitch a compelling title"
-                      className="w-full rounded-xl border border-input/40 bg-background px-4 py-3 text-sm font-light text-foreground placeholder-muted-foreground focus:border-foreground/20 focus:outline-none focus:ring-1 focus:ring-foreground/10 transition-all tracking-wide"
-                      disabled={isUploading}
-                    />
-                  </div>
+                <AnimatePresence mode="wait">
+                  {!videoPreview ? (
+                    <motion.div
+                      key="upload-area"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                    >
+                      <div className="mb-8 space-y-6">
+                        <div>
+                          <label className="block text-xs font-light text-foreground mb-3 tracking-wide">
+                            Video Title *
+                          </label>
+                          <input
+                            type="text"
+                            value={videoTitle}
+                            onChange={(e) => setVideoTitle(e.target.value)}
+                            placeholder="Give your pitch a compelling title"
+                            className="w-full rounded-xl border border-input/40 bg-background px-4 py-3 text-sm font-light text-foreground placeholder-muted-foreground focus:border-foreground/20 focus:outline-none focus:ring-1 focus:ring-foreground/10 transition-all tracking-wide"
+                            disabled={isUploading}
+                          />
+                        </div>
 
-                  <div>
-                    <label className="block text-xs font-light text-foreground mb-3 tracking-wide">
-                      Description (Optional)
-                    </label>
-                    <textarea
-                      value={videoDescription}
-                      onChange={(e) => setVideoDescription(e.target.value)}
-                      placeholder="Describe what makes your startup unique..."
-                      rows={3}
-                      className="w-full rounded-xl border border-input/40 bg-background px-4 py-3 text-sm font-light text-foreground placeholder-muted-foreground focus:border-foreground/20 focus:outline-none focus:ring-1 focus:ring-foreground/10 transition-all resize-none tracking-wide"
-                      disabled={isUploading}
-                    />
-                  </div>
-                </div>
-
-                <div
-                  {...getRootProps()}
-                  className={`cursor-pointer rounded-2xl border border-dashed p-16 text-center transition-all duration-400 ${
-                    isDragActive
-                      ? "border-foreground/40 bg-foreground/5 scale-[1.01]"
-                      : "border-border/40 bg-muted/10 hover:bg-muted/20 hover:border-foreground/20"
-                  } ${isUploading ? "opacity-50 cursor-not-allowed" : ""}`}
-                >
-                  <input {...getInputProps()} />
-                  {isUploading ? (
-                    <div>
-                      <div className="mx-auto mb-6 h-12 w-12 animate-spin rounded-full border-2 border-foreground border-t-transparent" />
-                      <p className="text-base font-light text-foreground tracking-wide">
-                        Uploading... {uploadProgress}%
-                      </p>
-                      <div className="mx-auto mt-5 h-1 w-64 rounded-full bg-muted overflow-hidden">
-                        <div
-                          className="h-full bg-foreground transition-all duration-300"
-                          style={{ width: `${uploadProgress}%` }}
-                        />
+                        <div>
+                          <label className="block text-xs font-light text-foreground mb-3 tracking-wide">
+                            Description (Optional)
+                          </label>
+                          <textarea
+                            value={videoDescription}
+                            onChange={(e) => setVideoDescription(e.target.value)}
+                            placeholder="Describe what makes your startup unique..."
+                            rows={3}
+                            className="w-full rounded-xl border border-input/40 bg-background px-4 py-3 text-sm font-light text-foreground placeholder-muted-foreground focus:border-foreground/20 focus:outline-none focus:ring-1 focus:ring-foreground/10 transition-all resize-none tracking-wide"
+                            disabled={isUploading}
+                          />
+                        </div>
                       </div>
-                    </div>
-                  ) : isDragActive ? (
-                    <div>
-                      <Upload className="mx-auto h-12 w-12 text-foreground mb-5" strokeWidth={1.5} />
-                      <p className="text-base font-light text-foreground tracking-wide">Drop video here</p>
-                      <p className="text-xs font-light text-muted-foreground mt-2 tracking-wide">
-                        Release to upload
-                      </p>
-                    </div>
+
+                      <div
+                        {...getRootProps()}
+                        className={`cursor-pointer rounded-2xl border border-dashed p-16 text-center transition-all duration-400 ${
+                          isDragActive
+                            ? "border-foreground/40 bg-foreground/5 scale-[1.01]"
+                            : "border-border/40 bg-muted/10 hover:bg-muted/20 hover:border-foreground/20"
+                        } ${isUploading ? "opacity-50 cursor-not-allowed" : ""}`}
+                      >
+                        <input {...getInputProps()} />
+                        {isDragActive ? (
+                          <div>
+                            <Upload className="mx-auto h-12 w-12 text-foreground mb-5" strokeWidth={1.5} />
+                            <p className="text-base font-light text-foreground tracking-wide">Drop video here</p>
+                            <p className="text-xs font-light text-muted-foreground mt-2 tracking-wide">
+                              Release to upload
+                            </p>
+                          </div>
+                        ) : (
+                          <div>
+                            <Upload className="mx-auto h-12 w-12 text-muted-foreground mb-5" strokeWidth={1.5} />
+                            <p className="text-base font-light text-foreground mb-2 tracking-wide">
+                              Drag and drop your video
+                            </p>
+                            <p className="text-xs font-light text-muted-foreground mb-5 tracking-wide">
+                              or click to browse
+                            </p>
+                            <div className="flex items-center justify-center gap-2 text-xs font-light text-muted-foreground tracking-wide">
+                              <span>MP4, MOV, AVI, MKV, WebM</span>
+                              <span>•</span>
+                              <span>Max 500MB</span>
+                              <span>•</span>
+                              <span>Min 3s</span>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </motion.div>
                   ) : (
-                    <div>
-                      <Upload className="mx-auto h-12 w-12 text-muted-foreground mb-5" strokeWidth={1.5} />
-                      <p className="text-base font-light text-foreground mb-2 tracking-wide">
-                        Drag and drop your video
-                      </p>
-                      <p className="text-xs font-light text-muted-foreground mb-5 tracking-wide">
-                        or click to browse
-                      </p>
-                      <div className="flex items-center justify-center gap-2 text-xs font-light text-muted-foreground tracking-wide">
-                        <span>MP4, MOV, AVI, MKV, WebM</span>
-                        <span>•</span>
-                        <span>Max 500MB</span>
+                    <motion.div
+                      key="preview-area"
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.95 }}
+                      className="space-y-6"
+                    >
+                      {/* Video Preview */}
+                      <div className="relative rounded-2xl overflow-hidden border border-border/40 bg-black">
+                        <video
+                          src={videoPreview}
+                          controls
+                          className="w-full aspect-video object-contain"
+                          preload="metadata"
+                        />
+                        <div className="absolute top-4 left-4 px-3 py-1.5 rounded-lg bg-foreground/90 backdrop-blur-sm">
+                          <div className="flex items-center gap-2">
+                            <PlayCircle className="h-4 w-4 text-background" strokeWidth={1.5} />
+                            <span className="text-xs font-light text-background tracking-wide">Preview</span>
+                          </div>
+                        </div>
                       </div>
-                    </div>
+
+                      {/* Form Fields */}
+                      <div className="space-y-4">
+                        <div>
+                          <label className="block text-xs font-light text-foreground mb-3 tracking-wide">
+                            Video Title *
+                          </label>
+                          <input
+                            type="text"
+                            value={videoTitle}
+                            onChange={(e) => setVideoTitle(e.target.value)}
+                            placeholder="Give your pitch a compelling title"
+                            className="w-full rounded-xl border border-input/40 bg-background px-4 py-3 text-sm font-light text-foreground placeholder-muted-foreground focus:border-foreground/20 focus:outline-none focus:ring-1 focus:ring-foreground/10 transition-all tracking-wide"
+                            disabled={isUploading}
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-light text-foreground mb-3 tracking-wide">
+                            Description (Optional)
+                          </label>
+                          <textarea
+                            value={videoDescription}
+                            onChange={(e) => setVideoDescription(e.target.value)}
+                            placeholder="Describe what makes your startup unique..."
+                            rows={3}
+                            className="w-full rounded-xl border border-input/40 bg-background px-4 py-3 text-sm font-light text-foreground placeholder-muted-foreground focus:border-foreground/20 focus:outline-none focus:ring-1 focus:ring-foreground/10 transition-all resize-none tracking-wide"
+                            disabled={isUploading}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Upload Progress */}
+                      {isUploading && (
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-xs font-light text-muted-foreground tracking-wide">
+                              Uploading your pitch...
+                            </span>
+                            <span className="text-xs font-light text-foreground tracking-wide">
+                              {uploadProgress}%
+                            </span>
+                          </div>
+                          <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
+                            <motion.div
+                              initial={{ width: 0 }}
+                              animate={{ width: `${uploadProgress}%` }}
+                              transition={{ duration: 0.3 }}
+                              className="h-full bg-foreground"
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Action Buttons */}
+                      <div className="flex gap-3">
+                        <motion.button
+                          whileHover={{ y: -1 }}
+                          whileTap={{ scale: 0.99 }}
+                          onClick={handleUpload}
+                          disabled={isUploading || !videoTitle.trim()}
+                          className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-foreground px-6 py-3 text-sm font-light text-background hover:shadow-lg transition-all duration-400 disabled:opacity-50 disabled:cursor-not-allowed tracking-wide"
+                        >
+                          {isUploading ? (
+                            <>
+                              <Loader2 className="h-4 w-4 animate-spin" strokeWidth={1.5} />
+                              Uploading...
+                            </>
+                          ) : (
+                            <>
+                              <Upload className="h-4 w-4" strokeWidth={1.5} />
+                              Upload Video
+                            </>
+                          )}
+                        </motion.button>
+                        <motion.button
+                          whileHover={{ y: -1 }}
+                          whileTap={{ scale: 0.99 }}
+                          onClick={handleCancelUpload}
+                          disabled={isUploading}
+                          className="flex items-center gap-2 rounded-xl border border-border/40 bg-background px-6 py-3 text-sm font-light text-foreground hover:bg-muted/20 transition-all duration-400 disabled:opacity-50 disabled:cursor-not-allowed tracking-wide"
+                        >
+                          <X className="h-4 w-4" strokeWidth={1.5} />
+                          Cancel
+                        </motion.button>
+                      </div>
+                    </motion.div>
                   )}
-                </div>
+                </AnimatePresence>
               </div>
             </motion.div>
 

@@ -15,7 +15,8 @@ import {
   TrendingUp,
   X,
   Loader2,
-  Image as ImageIcon
+  Image as ImageIcon,
+  PlayCircle
 } from "lucide-react";
 
 type ProfileStep = 1 | 2 | 3 | 4;
@@ -249,7 +250,13 @@ export default function CreateProfilePage() {
       
       setVideoFile(file);
       setVideoPreview(URL.createObjectURL(file));
-      toast.success("Video loaded successfully");
+      toast.success("Video loaded successfully - ready to upload!");
+    };
+
+    video.onerror = () => {
+      toast.error("Invalid video file");
+      setVideoFile(null);
+      setVideoPreview(null);
     };
 
     video.src = URL.createObjectURL(file);
@@ -354,14 +361,14 @@ export default function CreateProfilePage() {
           return;
         }
 
-        // Step 4: Upload video if entrepreneur
+        // Step 4: Upload video if entrepreneur using NEW upload endpoint
         if (videoFile) {
           setIsUploading(true);
           const videoFormData = new FormData();
           videoFormData.append("file", videoFile);
+          videoFormData.append("profileId", profile.id.toString());
           videoFormData.append("title", videoTitle);
           videoFormData.append("description", videoDescription);
-          videoFormData.append("profileId", profile.id.toString());
 
           // Simulate upload progress
           const progressInterval = setInterval(() => {
@@ -374,7 +381,7 @@ export default function CreateProfilePage() {
             });
           }, 300);
 
-          const videoResponse = await fetch("/api/videos", {
+          const videoResponse = await fetch("/api/upload/video", {
             method: "POST",
             headers: {
               Authorization: `Bearer ${token}`,
@@ -386,7 +393,8 @@ export default function CreateProfilePage() {
           setUploadProgress(100);
 
           if (!videoResponse.ok) {
-            toast.error("Failed to upload video");
+            const error = await videoResponse.json();
+            toast.error(error.error || "Failed to upload video");
             return;
           }
         }
@@ -430,8 +438,8 @@ export default function CreateProfilePage() {
           animate={{ opacity: 1, scale: 1 }}
           className="flex flex-col items-center gap-4"
         >
-          <div className="h-12 w-12 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-          <p className="text-sm font-medium text-muted-foreground">Loading...</p>
+          <div className="h-12 w-12 animate-spin rounded-full border-2 border-foreground border-t-transparent" />
+          <p className="text-sm font-light text-muted-foreground tracking-wide">Loading...</p>
         </motion.div>
       </div>
     );
@@ -458,13 +466,13 @@ export default function CreateProfilePage() {
             animate={{ opacity: 1, y: 0 }}
             className="mb-8 text-center"
           >
-            <h1 className="text-4xl font-bold tracking-tight text-foreground mb-2">
+            <h1 className="text-4xl font-light tracking-wide text-foreground mb-2">
               Pitch<span className="text-primary">Match</span>
             </h1>
-            <h2 className="text-2xl font-bold text-foreground">
+            <h2 className="text-2xl font-light text-foreground tracking-wide">
               Complete Your Profile
             </h2>
-            <p className="mt-2 text-sm text-muted-foreground">
+            <p className="mt-2 text-sm font-light text-muted-foreground tracking-wide">
               Step {currentStep} of 4 - {steps[currentStep - 1].title}
             </p>
           </motion.div>
@@ -490,12 +498,12 @@ export default function CreateProfilePage() {
                       }`}
                     >
                       {step.completed ? (
-                        <Check className="h-5 w-5" />
+                        <Check className="h-5 w-5" strokeWidth={1.5} />
                       ) : (
-                        <span className="text-sm font-bold">{step.number}</span>
+                        <span className="text-sm font-light">{step.number}</span>
                       )}
                     </div>
-                    <span className="mt-2 hidden sm:block text-xs text-center font-medium text-muted-foreground max-w-[80px]">
+                    <span className="mt-2 hidden sm:block text-xs text-center font-light text-muted-foreground max-w-[80px] tracking-wide">
                       {step.title}
                     </span>
                   </motion.div>
@@ -532,7 +540,7 @@ export default function CreateProfilePage() {
                   className="space-y-6"
                 >
                   <div>
-                    <h3 className="text-xl font-bold text-foreground mb-4">
+                    <h3 className="text-xl font-light text-foreground mb-4 tracking-wide">
                       Select Your Role
                     </h3>
                     <div className="grid gap-4 sm:grid-cols-2">
@@ -547,12 +555,12 @@ export default function CreateProfilePage() {
                         }`}
                       >
                         <div className="mb-4 inline-flex h-14 w-14 items-center justify-center rounded-xl bg-primary/10">
-                          <Rocket className="h-7 w-7 text-primary" />
+                          <Rocket className="h-7 w-7 text-primary" strokeWidth={1.5} />
                         </div>
-                        <h4 className="text-lg font-bold text-foreground mb-2">
+                        <h4 className="text-lg font-light text-foreground mb-2 tracking-wide">
                           Entrepreneur
                         </h4>
-                        <p className="text-sm text-muted-foreground">
+                        <p className="text-sm font-light text-muted-foreground tracking-wide">
                           Pitch your startup and connect with investors
                         </p>
                         {role === "entrepreneur" && (
@@ -561,7 +569,7 @@ export default function CreateProfilePage() {
                             animate={{ scale: 1 }}
                             className="absolute top-4 right-4 h-6 w-6 rounded-full bg-primary flex items-center justify-center"
                           >
-                            <Check className="h-4 w-4 text-primary-foreground" />
+                            <Check className="h-4 w-4 text-primary-foreground" strokeWidth={1.5} />
                           </motion.div>
                         )}
                       </motion.button>
@@ -577,12 +585,12 @@ export default function CreateProfilePage() {
                         }`}
                       >
                         <div className="mb-4 inline-flex h-14 w-14 items-center justify-center rounded-xl bg-primary/10">
-                          <TrendingUp className="h-7 w-7 text-primary" />
+                          <TrendingUp className="h-7 w-7 text-primary" strokeWidth={1.5} />
                         </div>
-                        <h4 className="text-lg font-bold text-foreground mb-2">
+                        <h4 className="text-lg font-light text-foreground mb-2 tracking-wide">
                           Investor
                         </h4>
-                        <p className="text-sm text-muted-foreground">
+                        <p className="text-sm font-light text-muted-foreground tracking-wide">
                           Discover startups and find investment opportunities
                         </p>
                         {role === "investor" && (
@@ -591,7 +599,7 @@ export default function CreateProfilePage() {
                             animate={{ scale: 1 }}
                             className="absolute top-4 right-4 h-6 w-6 rounded-full bg-primary flex items-center justify-center"
                           >
-                            <Check className="h-4 w-4 text-primary-foreground" />
+                            <Check className="h-4 w-4 text-primary-foreground" strokeWidth={1.5} />
                           </motion.div>
                         )}
                       </motion.button>
@@ -600,45 +608,45 @@ export default function CreateProfilePage() {
 
                   <div className="space-y-4">
                     <div>
-                      <label className="block text-sm font-medium text-foreground mb-2">
+                      <label className="block text-sm font-light text-foreground mb-2 tracking-wide">
                         Full Name *
                       </label>
                       <input
                         type="text"
                         value={basicInfo.name}
                         onChange={(e) => setBasicInfo({ ...basicInfo, name: e.target.value })}
-                        className="w-full rounded-xl border border-input bg-background px-4 py-3 text-foreground placeholder-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                        className="w-full rounded-xl border border-input bg-background px-4 py-3 text-sm font-light text-foreground placeholder-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 tracking-wide"
                         placeholder="Your full name"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-foreground mb-2">
+                      <label className="block text-sm font-light text-foreground mb-2 tracking-wide">
                         Email *
                       </label>
                       <input
                         type="email"
                         value={basicInfo.email}
                         disabled
-                        className="w-full rounded-xl border border-input bg-muted px-4 py-3 text-muted-foreground cursor-not-allowed"
+                        className="w-full rounded-xl border border-input bg-muted px-4 py-3 text-sm font-light text-muted-foreground cursor-not-allowed tracking-wide"
                       />
-                      <p className="mt-1 text-xs text-muted-foreground">
+                      <p className="mt-1 text-xs font-light text-muted-foreground tracking-wide">
                         Email cannot be changed
                       </p>
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-foreground mb-2">
+                      <label className="block text-sm font-light text-foreground mb-2 tracking-wide">
                         Bio *
                       </label>
                       <textarea
                         value={basicInfo.bio}
                         onChange={(e) => setBasicInfo({ ...basicInfo, bio: e.target.value })}
                         rows={4}
-                        className="w-full rounded-xl border border-input bg-background px-4 py-3 text-foreground placeholder-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                        className="w-full rounded-xl border border-input bg-background px-4 py-3 text-sm font-light text-foreground placeholder-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 tracking-wide"
                         placeholder="Tell us about yourself and your goals..."
                       />
-                      <p className="mt-1 text-xs text-muted-foreground">
+                      <p className="mt-1 text-xs font-light text-muted-foreground tracking-wide">
                         {basicInfo.bio.length} / 500 characters
                       </p>
                     </div>
@@ -654,60 +662,60 @@ export default function CreateProfilePage() {
                   exit={{ opacity: 0 }}
                   className="space-y-4"
                 >
-                  <h3 className="text-xl font-bold text-foreground mb-4">
+                  <h3 className="text-xl font-light text-foreground mb-4 tracking-wide">
                     {role === "entrepreneur" ? "Startup Details" : "Investment Preferences"}
                   </h3>
 
                   {role === "entrepreneur" ? (
                     <>
                       <div>
-                        <label className="block text-sm font-medium text-foreground mb-2">
+                        <label className="block text-sm font-light text-foreground mb-2 tracking-wide">
                           Startup Name *
                         </label>
                         <input
                           type="text"
                           value={entrepreneurData.startupName}
                           onChange={(e) => setEntrepreneurData({ ...entrepreneurData, startupName: e.target.value })}
-                          className="w-full rounded-xl border border-input bg-background px-4 py-3 text-foreground placeholder-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                          className="w-full rounded-xl border border-input bg-background px-4 py-3 text-sm font-light text-foreground placeholder-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 tracking-wide"
                           placeholder="Your company name"
                         />
                       </div>
 
                       <div>
-                        <label className="block text-sm font-medium text-foreground mb-2">
+                        <label className="block text-sm font-light text-foreground mb-2 tracking-wide">
                           Business Description *
                         </label>
                         <textarea
                           value={entrepreneurData.businessDescription}
                           onChange={(e) => setEntrepreneurData({ ...entrepreneurData, businessDescription: e.target.value })}
                           rows={4}
-                          className="w-full rounded-xl border border-input bg-background px-4 py-3 text-foreground placeholder-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                          className="w-full rounded-xl border border-input bg-background px-4 py-3 text-sm font-light text-foreground placeholder-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 tracking-wide"
                           placeholder="Describe your business and what makes it unique..."
                         />
                       </div>
 
                       <div className="grid gap-4 sm:grid-cols-2">
                         <div>
-                          <label className="block text-sm font-medium text-foreground mb-2">
+                          <label className="block text-sm font-light text-foreground mb-2 tracking-wide">
                             Industry *
                           </label>
                           <input
                             type="text"
                             value={entrepreneurData.industry}
                             onChange={(e) => setEntrepreneurData({ ...entrepreneurData, industry: e.target.value })}
-                            className="w-full rounded-xl border border-input bg-background px-4 py-3 text-foreground placeholder-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                            className="w-full rounded-xl border border-input bg-background px-4 py-3 text-sm font-light text-foreground placeholder-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 tracking-wide"
                             placeholder="e.g., Technology"
                           />
                         </div>
 
                         <div>
-                          <label className="block text-sm font-medium text-foreground mb-2">
+                          <label className="block text-sm font-light text-foreground mb-2 tracking-wide">
                             Funding Stage
                           </label>
                           <select
                             value={entrepreneurData.fundingStage}
                             onChange={(e) => setEntrepreneurData({ ...entrepreneurData, fundingStage: e.target.value })}
-                            className="w-full rounded-xl border border-input bg-background px-4 py-3 text-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                            className="w-full rounded-xl border border-input bg-background px-4 py-3 text-sm font-light text-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 tracking-wide"
                           >
                             <option value="">Select stage</option>
                             <option value="Pre-seed">Pre-seed</option>
@@ -721,27 +729,27 @@ export default function CreateProfilePage() {
 
                       <div className="grid gap-4 sm:grid-cols-2">
                         <div>
-                          <label className="block text-sm font-medium text-foreground mb-2">
+                          <label className="block text-sm font-light text-foreground mb-2 tracking-wide">
                             Location *
                           </label>
                           <input
                             type="text"
                             value={entrepreneurData.location}
                             onChange={(e) => setEntrepreneurData({ ...entrepreneurData, location: e.target.value })}
-                            className="w-full rounded-xl border border-input bg-background px-4 py-3 text-foreground placeholder-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                            className="w-full rounded-xl border border-input bg-background px-4 py-3 text-sm font-light text-foreground placeholder-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 tracking-wide"
                             placeholder="City, Country"
                           />
                         </div>
 
                         <div>
-                          <label className="block text-sm font-medium text-foreground mb-2">
+                          <label className="block text-sm font-light text-foreground mb-2 tracking-wide">
                             Website
                           </label>
                           <input
                             type="url"
                             value={entrepreneurData.website}
                             onChange={(e) => setEntrepreneurData({ ...entrepreneurData, website: e.target.value })}
-                            className="w-full rounded-xl border border-input bg-background px-4 py-3 text-foreground placeholder-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                            className="w-full rounded-xl border border-input bg-background px-4 py-3 text-sm font-light text-foreground placeholder-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 tracking-wide"
                             placeholder="https://yourwebsite.com"
                           />
                         </div>
@@ -750,40 +758,40 @@ export default function CreateProfilePage() {
                   ) : (
                     <>
                       <div>
-                        <label className="block text-sm font-medium text-foreground mb-2">
+                        <label className="block text-sm font-light text-foreground mb-2 tracking-wide">
                           Investment Preferences *
                         </label>
                         <textarea
                           value={investorData.investmentPreferences}
                           onChange={(e) => setInvestorData({ ...investorData, investmentPreferences: e.target.value })}
                           rows={4}
-                          className="w-full rounded-xl border border-input bg-background px-4 py-3 text-foreground placeholder-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                          className="w-full rounded-xl border border-input bg-background px-4 py-3 text-sm font-light text-foreground placeholder-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 tracking-wide"
                           placeholder="What types of startups and investments interest you?"
                         />
                       </div>
 
                       <div className="grid gap-4 sm:grid-cols-2">
                         <div>
-                          <label className="block text-sm font-medium text-foreground mb-2">
+                          <label className="block text-sm font-light text-foreground mb-2 tracking-wide">
                             Industry Focus *
                           </label>
                           <input
                             type="text"
                             value={investorData.industryFocus}
                             onChange={(e) => setInvestorData({ ...investorData, industryFocus: e.target.value })}
-                            className="w-full rounded-xl border border-input bg-background px-4 py-3 text-foreground placeholder-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                            className="w-full rounded-xl border border-input bg-background px-4 py-3 text-sm font-light text-foreground placeholder-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 tracking-wide"
                             placeholder="e.g., Technology, Healthcare"
                           />
                         </div>
 
                         <div>
-                          <label className="block text-sm font-medium text-foreground mb-2">
+                          <label className="block text-sm font-light text-foreground mb-2 tracking-wide">
                             Funding Capacity
                           </label>
                           <select
                             value={investorData.fundingCapacity}
                             onChange={(e) => setInvestorData({ ...investorData, fundingCapacity: e.target.value })}
-                            className="w-full rounded-xl border border-input bg-background px-4 py-3 text-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                            className="w-full rounded-xl border border-input bg-background px-4 py-3 text-sm font-light text-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 tracking-wide"
                           >
                             <option value="">Select range</option>
                             <option value="$10K-$50K">$10K-$50K</option>
@@ -796,14 +804,14 @@ export default function CreateProfilePage() {
                       </div>
 
                       <div>
-                        <label className="block text-sm font-medium text-foreground mb-2">
+                        <label className="block text-sm font-light text-foreground mb-2 tracking-wide">
                           Location *
                         </label>
                         <input
                           type="text"
                           value={investorData.location}
                           onChange={(e) => setInvestorData({ ...investorData, location: e.target.value })}
-                          className="w-full rounded-xl border border-input bg-background px-4 py-3 text-foreground placeholder-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                          className="w-full rounded-xl border border-input bg-background px-4 py-3 text-sm font-light text-foreground placeholder-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 tracking-wide"
                           placeholder="City, Country"
                         />
                       </div>
@@ -823,10 +831,10 @@ export default function CreateProfilePage() {
                   {role === "entrepreneur" ? (
                     <>
                       <div>
-                        <h3 className="text-xl font-bold text-foreground mb-2">
+                        <h3 className="text-xl font-light text-foreground mb-2 tracking-wide">
                           Upload Your Pitch Video *
                         </h3>
-                        <p className="text-sm text-muted-foreground mb-4">
+                        <p className="text-sm font-light text-muted-foreground mb-4 tracking-wide">
                           This is required for entrepreneurs. Show investors your vision! (Max 500MB, min 3 seconds)
                         </p>
                       </div>
@@ -834,11 +842,11 @@ export default function CreateProfilePage() {
                       {!videoPreview ? (
                         <label className="flex flex-col items-center justify-center w-full h-64 border-2 border-dashed border-border rounded-2xl cursor-pointer bg-muted/30 hover:bg-muted/50 transition-all">
                           <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                            <Upload className="h-12 w-12 text-muted-foreground mb-3" />
-                            <p className="mb-2 text-sm font-semibold text-foreground">
+                            <Upload className="h-12 w-12 text-muted-foreground mb-3" strokeWidth={1.5} />
+                            <p className="mb-2 text-sm font-light text-foreground tracking-wide">
                               Click to upload video
                             </p>
-                            <p className="text-xs text-muted-foreground">
+                            <p className="text-xs font-light text-muted-foreground tracking-wide">
                               MP4, MOV, AVI (MAX. 500MB, MIN. 3s)
                             </p>
                           </div>
@@ -850,50 +858,55 @@ export default function CreateProfilePage() {
                           />
                         </label>
                       ) : (
-                        <div className="relative rounded-2xl overflow-hidden border border-border">
-                          <video
-                            src={videoPreview}
-                            controls
-                            className="w-full h-64 object-cover bg-black"
-                          />
-                          <motion.button
-                            whileHover={{ scale: 1.1 }}
-                            whileTap={{ scale: 0.9 }}
-                            onClick={() => {
-                              setVideoFile(null);
-                              setVideoPreview(null);
-                            }}
-                            className="absolute top-2 right-2 p-2 rounded-full bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                          >
-                            <X className="h-4 w-4" />
-                          </motion.button>
-                        </div>
-                      )}
-
-                      {videoFile && (
                         <div className="space-y-4">
+                          <div className="relative rounded-2xl overflow-hidden border border-border bg-black">
+                            <video
+                              src={videoPreview}
+                              controls
+                              className="w-full aspect-video object-contain"
+                              preload="metadata"
+                            />
+                            <div className="absolute top-4 left-4 px-3 py-1.5 rounded-lg bg-foreground/90 backdrop-blur-sm">
+                              <div className="flex items-center gap-2">
+                                <PlayCircle className="h-4 w-4 text-background" strokeWidth={1.5} />
+                                <span className="text-xs font-light text-background tracking-wide">Preview</span>
+                              </div>
+                            </div>
+                            <motion.button
+                              whileHover={{ scale: 1.1 }}
+                              whileTap={{ scale: 0.9 }}
+                              onClick={() => {
+                                setVideoFile(null);
+                                setVideoPreview(null);
+                              }}
+                              className="absolute top-4 right-4 p-2 rounded-full bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            >
+                              <X className="h-4 w-4" strokeWidth={1.5} />
+                            </motion.button>
+                          </div>
+
                           <div>
-                            <label className="block text-sm font-medium text-foreground mb-2">
+                            <label className="block text-sm font-light text-foreground mb-2 tracking-wide">
                               Video Title *
                             </label>
                             <input
                               type="text"
                               value={videoTitle}
                               onChange={(e) => setVideoTitle(e.target.value)}
-                              className="w-full rounded-xl border border-input bg-background px-4 py-3 text-foreground placeholder-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                              className="w-full rounded-xl border border-input bg-background px-4 py-3 text-sm font-light text-foreground placeholder-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 tracking-wide"
                               placeholder="e.g., Revolutionary AI Platform for Healthcare"
                             />
                           </div>
 
                           <div>
-                            <label className="block text-sm font-medium text-foreground mb-2">
+                            <label className="block text-sm font-light text-foreground mb-2 tracking-wide">
                               Video Description *
                             </label>
                             <textarea
                               value={videoDescription}
                               onChange={(e) => setVideoDescription(e.target.value)}
                               rows={3}
-                              className="w-full rounded-xl border border-input bg-background px-4 py-3 text-foreground placeholder-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                              className="w-full rounded-xl border border-input bg-background px-4 py-3 text-sm font-light text-foreground placeholder-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 tracking-wide"
                               placeholder="Describe what investors will see in this pitch..."
                             />
                           </div>
@@ -903,8 +916,8 @@ export default function CreateProfilePage() {
                       {isUploading && (
                         <div className="space-y-2">
                           <div className="flex items-center justify-between text-sm">
-                            <span className="text-muted-foreground">Uploading...</span>
-                            <span className="font-semibold text-foreground">{uploadProgress}%</span>
+                            <span className="text-xs font-light text-muted-foreground tracking-wide">Uploading...</span>
+                            <span className="text-xs font-light text-foreground tracking-wide">{uploadProgress}%</span>
                           </div>
                           <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
                             <motion.div
@@ -919,12 +932,12 @@ export default function CreateProfilePage() {
                   ) : (
                     <div className="text-center py-12">
                       <div className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 mb-4">
-                        <Check className="h-8 w-8 text-primary" />
+                        <Check className="h-8 w-8 text-primary" strokeWidth={1.5} />
                       </div>
-                      <h3 className="text-xl font-bold text-foreground mb-2">
+                      <h3 className="text-xl font-light text-foreground mb-2 tracking-wide">
                         Great Progress!
                       </h3>
-                      <p className="text-muted-foreground">
+                      <p className="text-sm font-light text-muted-foreground tracking-wide">
                         As an investor, you can skip the video upload step.
                       </p>
                     </div>
@@ -941,10 +954,10 @@ export default function CreateProfilePage() {
                   className="space-y-6"
                 >
                   <div>
-                    <h3 className="text-xl font-bold text-foreground mb-2">
+                    <h3 className="text-xl font-light text-foreground mb-2 tracking-wide">
                       Profile Photo & Preferences
                     </h3>
-                    <p className="text-sm text-muted-foreground mb-4">
+                    <p className="text-sm font-light text-muted-foreground mb-4 tracking-wide">
                       Add a professional photo and select your interests
                     </p>
                   </div>
@@ -952,11 +965,11 @@ export default function CreateProfilePage() {
                   {!photoPreview ? (
                     <label className="flex flex-col items-center justify-center w-full h-48 border-2 border-dashed border-border rounded-2xl cursor-pointer bg-muted/30 hover:bg-muted/50 transition-all">
                       <div className="flex flex-col items-center justify-center">
-                        <ImageIcon className="h-12 w-12 text-muted-foreground mb-3" />
-                        <p className="mb-2 text-sm font-semibold text-foreground">
+                        <ImageIcon className="h-12 w-12 text-muted-foreground mb-3" strokeWidth={1.5} />
+                        <p className="mb-2 text-sm font-light text-foreground tracking-wide">
                           Click to upload photo
                         </p>
-                        <p className="text-xs text-muted-foreground">
+                        <p className="text-xs font-light text-muted-foreground tracking-wide">
                           JPG, PNG (MAX. 5MB)
                         </p>
                       </div>
@@ -983,13 +996,13 @@ export default function CreateProfilePage() {
                         }}
                         className="absolute -top-2 -right-2 p-2 rounded-full bg-destructive text-destructive-foreground hover:bg-destructive/90"
                       >
-                        <X className="h-4 w-4" />
+                        <X className="h-4 w-4" strokeWidth={1.5} />
                       </motion.button>
                     </div>
                   )}
 
                   <div>
-                    <label className="block text-sm font-medium text-foreground mb-3">
+                    <label className="block text-sm font-light text-foreground mb-3 tracking-wide">
                       Select Interests (at least 1) *
                     </label>
                     <div className="flex flex-wrap gap-2">
@@ -1000,7 +1013,7 @@ export default function CreateProfilePage() {
                           whileTap={{ scale: 0.95 }}
                           type="button"
                           onClick={() => toggleInterest(interest)}
-                          className={`rounded-full px-4 py-2 text-sm font-medium transition-all ${
+                          className={`rounded-full px-4 py-2 text-sm font-light transition-all tracking-wide ${
                             interests.includes(interest)
                               ? "bg-primary text-primary-foreground"
                               : "bg-muted text-muted-foreground hover:bg-muted/80"
@@ -1017,7 +1030,7 @@ export default function CreateProfilePage() {
                         value={customInterest}
                         onChange={(e) => setCustomInterest(e.target.value)}
                         onKeyPress={(e) => e.key === "Enter" && addCustomInterest()}
-                        className="flex-1 rounded-xl border border-input bg-background px-4 py-2 text-sm text-foreground placeholder-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                        className="flex-1 rounded-xl border border-input bg-background px-4 py-2 text-sm font-light text-foreground placeholder-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 tracking-wide"
                         placeholder="Add custom interest..."
                       />
                       <motion.button
@@ -1025,7 +1038,7 @@ export default function CreateProfilePage() {
                         whileTap={{ scale: 0.95 }}
                         type="button"
                         onClick={addCustomInterest}
-                        className="rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+                        className="rounded-xl bg-primary px-4 py-2 text-sm font-light text-primary-foreground hover:bg-primary/90 tracking-wide"
                       >
                         Add
                       </motion.button>
@@ -1033,7 +1046,7 @@ export default function CreateProfilePage() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-foreground mb-3">
+                    <label className="block text-sm font-light text-foreground mb-3 tracking-wide">
                       Profile Visibility
                     </label>
                     <div className="grid gap-3 sm:grid-cols-2">
@@ -1049,12 +1062,12 @@ export default function CreateProfilePage() {
                         }`}
                       >
                         <div className="flex items-center justify-between mb-2">
-                          <h4 className="font-semibold text-foreground">Public</h4>
+                          <h4 className="font-light text-foreground tracking-wide">Public</h4>
                           {visibility === "public" && (
-                            <Check className="h-5 w-5 text-primary" />
+                            <Check className="h-5 w-5 text-primary" strokeWidth={1.5} />
                           )}
                         </div>
-                        <p className="text-sm text-muted-foreground">
+                        <p className="text-sm font-light text-muted-foreground tracking-wide">
                           Visible to all users
                         </p>
                       </motion.button>
@@ -1071,12 +1084,12 @@ export default function CreateProfilePage() {
                         }`}
                       >
                         <div className="flex items-center justify-between mb-2">
-                          <h4 className="font-semibold text-foreground">Private</h4>
+                          <h4 className="font-light text-foreground tracking-wide">Private</h4>
                           {visibility === "private" && (
-                            <Check className="h-5 w-5 text-primary" />
+                            <Check className="h-5 w-5 text-primary" strokeWidth={1.5} />
                           )}
                         </div>
-                        <p className="text-sm text-muted-foreground">
+                        <p className="text-sm font-light text-muted-foreground tracking-wide">
                           Only visible to connections
                         </p>
                       </motion.button>
@@ -1095,9 +1108,9 @@ export default function CreateProfilePage() {
                 whileTap={{ scale: 0.98 }}
                 onClick={handleBack}
                 disabled={isLoading}
-                className="flex items-center gap-2 rounded-2xl border-2 border-border bg-background px-6 py-3 font-semibold text-foreground hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex items-center gap-2 rounded-2xl border-2 border-border bg-background px-6 py-3 font-light text-foreground hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed tracking-wide"
               >
-                <ArrowLeft className="h-5 w-5" />
+                <ArrowLeft className="h-5 w-5" strokeWidth={1.5} />
                 Back
               </motion.button>
             )}
@@ -1107,22 +1120,22 @@ export default function CreateProfilePage() {
               whileTap={{ scale: 0.98 }}
               onClick={currentStep === 4 ? handleSubmit : handleNext}
               disabled={isLoading || isUploading}
-              className="flex-1 flex items-center justify-center gap-2 rounded-2xl bg-primary px-6 py-3 font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
+              className="flex-1 flex items-center justify-center gap-2 rounded-2xl bg-primary px-6 py-3 font-light text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg tracking-wide"
             >
               {isLoading || isUploading ? (
                 <>
-                  <Loader2 className="h-5 w-5 animate-spin" />
+                  <Loader2 className="h-5 w-5 animate-spin" strokeWidth={1.5} />
                   {isUploading ? "Uploading..." : "Creating Profile..."}
                 </>
               ) : currentStep === 4 ? (
                 <>
                   Complete Profile
-                  <Check className="h-5 w-5" />
+                  <Check className="h-5 w-5" strokeWidth={1.5} />
                 </>
               ) : (
                 <>
                   Continue
-                  <ArrowRight className="h-5 w-5" />
+                  <ArrowRight className="h-5 w-5" strokeWidth={1.5} />
                 </>
               )}
             </motion.button>
