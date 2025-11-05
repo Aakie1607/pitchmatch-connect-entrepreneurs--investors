@@ -69,7 +69,7 @@ export default function RegisterPage() {
   if (isPending) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <Loader2 className="h-6 w-6 animate-spin text-foreground" strokeWidth={1.5} />
       </div>
     );
   }
@@ -80,40 +80,42 @@ export default function RegisterPage() {
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
-      <div className="flex flex-1 items-center justify-center px-4 py-16 sm:px-6 lg:px-8">
+      <div className="flex flex-1 items-center justify-center px-4 py-12 sm:px-6 lg:px-8">
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
           className="w-full max-w-md space-y-8"
         >
           {/* Header */}
           <div className="text-center">
             <Link href="/" className="inline-block">
               <motion.h1
-                whileHover={{ scale: 1.05 }}
-                className="text-4xl font-bold tracking-tight text-foreground"
+                whileHover={{ scale: 1.02 }}
+                transition={{ duration: 0.3 }}
+                className="text-3xl font-light tracking-wide text-foreground"
               >
-                Pitch<span className="text-primary">Match</span>
+                Pitch<span className="font-normal">Match</span>
               </motion.h1>
             </Link>
             <motion.h2
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              transition={{ delay: 0.2 }}
-              className="mt-6 text-3xl font-bold tracking-tight text-foreground"
+              transition={{ delay: 0.2, duration: 0.6 }}
+              className="mt-8 text-2xl font-light tracking-wide text-foreground"
             >
-              Create your account
+              Create Account
             </motion.h2>
             <motion.p
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              transition={{ delay: 0.3 }}
-              className="mt-2 text-sm text-muted-foreground"
+              transition={{ delay: 0.3, duration: 0.6 }}
+              className="mt-3 text-sm font-light text-muted-foreground tracking-wide"
             >
               Already have an account?{" "}
               <Link
                 href="/login"
-                className="font-medium text-primary hover:text-primary/90 transition-colors"
+                className="font-normal text-foreground hover:opacity-70 transition-opacity duration-300"
               >
                 Sign in
               </Link>
@@ -122,23 +124,23 @@ export default function RegisterPage() {
 
           {/* Form */}
           <motion.form
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.4 }}
+            transition={{ delay: 0.4, duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
             onSubmit={handleSubmit}
-            className="mt-8 space-y-6"
+            className="mt-10 space-y-5"
           >
-            <div className="space-y-4 rounded-2xl border border-border bg-card p-6 shadow-sm">
+            <div className="space-y-5 rounded-2xl border border-border/40 bg-card p-8 shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
               {/* Name */}
               <div>
                 <label
                   htmlFor="name"
-                  className="block text-sm font-medium text-foreground mb-2"
+                  className="block text-xs font-light text-foreground mb-2 tracking-wide"
                 >
                   Full Name
                 </label>
                 <div className="relative">
-                  <UserIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                  <UserIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" strokeWidth={1.5} />
                   <input
                     id="name"
                     name="name"
@@ -149,7 +151,7 @@ export default function RegisterPage() {
                     onChange={(e) =>
                       setFormData({ ...formData, name: e.target.value })
                     }
-                    className="block w-full rounded-xl border border-input bg-background pl-10 pr-4 py-3 text-foreground placeholder-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
+                    className="block w-full rounded-xl border border-border/40 bg-background pl-10 pr-4 py-2.5 text-sm font-light text-foreground placeholder-muted-foreground/60 focus:border-foreground/20 focus:outline-none focus:ring-1 focus:ring-foreground/10 transition-all duration-300 tracking-wide"
                     placeholder="John Doe"
                   />
                 </div>
@@ -159,12 +161,12 @@ export default function RegisterPage() {
               <div>
                 <label
                   htmlFor="email"
-                  className="block text-sm font-medium text-foreground mb-2"
+                  className="block text-xs font-light text-foreground mb-2 tracking-wide"
                 >
-                  Email address
+                  Email
                 </label>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" strokeWidth={1.5} />
                   <input
                     id="email"
                     name="email"
@@ -175,7 +177,7 @@ export default function RegisterPage() {
                     onChange={(e) =>
                       setFormData({ ...formData, email: e.target.value })
                     }
-                    className="block w-full rounded-xl border border-input bg-background pl-10 pr-4 py-3 text-foreground placeholder-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
+                    className="block w-full rounded-xl border border-border/40 bg-background pl-10 pr-4 py-2.5 text-sm font-light text-foreground placeholder-muted-foreground/60 focus:border-foreground/20 focus:outline-none focus:ring-1 focus:ring-foreground/10 transition-all duration-300 tracking-wide"
                     placeholder="you@example.com"
                   />
                 </div>
@@ -185,12 +187,12 @@ export default function RegisterPage() {
               <div>
                 <label
                   htmlFor="password"
-                  className="block text-sm font-medium text-foreground mb-2"
+                  className="block text-xs font-light text-foreground mb-2 tracking-wide"
                 >
                   Password
                 </label>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" strokeWidth={1.5} />
                   <input
                     id="password"
                     name="password"
@@ -201,23 +203,23 @@ export default function RegisterPage() {
                     onChange={(e) =>
                       setFormData({ ...formData, password: e.target.value })
                     }
-                    className="block w-full rounded-xl border border-input bg-background pl-10 pr-12 py-3 text-foreground placeholder-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
+                    className="block w-full rounded-xl border border-border/40 bg-background pl-10 pr-12 py-2.5 text-sm font-light text-foreground placeholder-muted-foreground/60 focus:border-foreground/20 focus:outline-none focus:ring-1 focus:ring-foreground/10 transition-all duration-300 tracking-wide"
                     placeholder="••••••••"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors duration-300"
                   >
                     {showPassword ? (
-                      <EyeOff className="h-5 w-5" />
+                      <EyeOff className="h-4 w-4" strokeWidth={1.5} />
                     ) : (
-                      <Eye className="h-5 w-5" />
+                      <Eye className="h-4 w-4" strokeWidth={1.5} />
                     )}
                   </button>
                 </div>
-                <p className="mt-2 text-xs text-muted-foreground">
-                  Must be at least 8 characters
+                <p className="mt-2 text-xs text-muted-foreground font-light tracking-wide">
+                  Minimum 8 characters
                 </p>
               </div>
 
@@ -225,12 +227,12 @@ export default function RegisterPage() {
               <div>
                 <label
                   htmlFor="confirmPassword"
-                  className="block text-sm font-medium text-foreground mb-2"
+                  className="block text-xs font-light text-foreground mb-2 tracking-wide"
                 >
                   Confirm Password
                 </label>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" strokeWidth={1.5} />
                   <input
                     id="confirmPassword"
                     name="confirmPassword"
@@ -241,18 +243,18 @@ export default function RegisterPage() {
                     onChange={(e) =>
                       setFormData({ ...formData, confirmPassword: e.target.value })
                     }
-                    className="block w-full rounded-xl border border-input bg-background pl-10 pr-12 py-3 text-foreground placeholder-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
+                    className="block w-full rounded-xl border border-border/40 bg-background pl-10 pr-12 py-2.5 text-sm font-light text-foreground placeholder-muted-foreground/60 focus:border-foreground/20 focus:outline-none focus:ring-1 focus:ring-foreground/10 transition-all duration-300 tracking-wide"
                     placeholder="••••••••"
                   />
                   <button
                     type="button"
                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors duration-300"
                   >
                     {showConfirmPassword ? (
-                      <EyeOff className="h-5 w-5" />
+                      <EyeOff className="h-4 w-4" strokeWidth={1.5} />
                     ) : (
-                      <Eye className="h-5 w-5" />
+                      <Eye className="h-4 w-4" strokeWidth={1.5} />
                     )}
                   </button>
                 </div>
@@ -260,25 +262,45 @@ export default function RegisterPage() {
             </div>
 
             <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
+              whileHover={{ scale: 1.01, y: -1 }}
+              whileTap={{ scale: 0.99 }}
+              transition={{ duration: 0.3 }}
               type="submit"
               disabled={isLoading}
-              className="w-full flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm"
+              className="w-full flex items-center justify-center gap-2 rounded-xl bg-foreground px-5 py-2.5 text-sm font-light text-background hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 shadow-[0_2px_8px_rgba(0,0,0,0.08)] tracking-wide"
             >
               {isLoading ? (
                 <>
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                  Creating account...
+                  <Loader2 className="h-4 w-4 animate-spin" strokeWidth={1.5} />
+                  Creating account
                 </>
               ) : (
                 <>
                   Create account
-                  <ArrowRight className="h-5 w-5" />
+                  <ArrowRight className="h-4 w-4" strokeWidth={1.5} />
                 </>
               )}
             </motion.button>
           </motion.form>
+
+          {/* Privacy Footer */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.6, duration: 0.6 }}
+            className="text-center pt-4"
+          >
+            <p className="text-xs font-light text-muted-foreground tracking-wide">
+              By creating an account, you agree to our{" "}
+              <Link href="/terms" className="text-foreground hover:opacity-70 transition-opacity duration-300">
+                Terms
+              </Link>{" "}
+              and{" "}
+              <Link href="/privacy" className="text-foreground hover:opacity-70 transition-opacity duration-300">
+                Privacy Policy
+              </Link>
+            </p>
+          </motion.div>
         </motion.div>
       </div>
     </div>
