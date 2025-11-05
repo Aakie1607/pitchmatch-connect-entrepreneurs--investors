@@ -1,0 +1,569 @@
+"use client";
+
+import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
+import { useSession } from "@/lib/auth-client";
+import Navigation from "@/components/Navigation";
+import { toast } from "sonner";
+import { supabase } from "@/lib/supabase";
+import { useDropzone } from "react-dropzone";
+import { motion } from "framer-motion";
+import { Upload, Video as VideoIcon, Eye, Trash2, Edit, X, Check } from "lucide-react";
+
+interface Profile {
+  id: number;
+  userId: string;
+  role: string;
+  profilePicture: string | null;
+  bio: string | null;
+}
+
+interface Video {
+  id: number;
+  title: string;
+  description: string | null;
+  videoUrl: string;
+  thumbnailUrl: string | null;
+  viewsCount: number;
+  createdAt: string;
+}
+
+export default function ProfilePage() {
+  const router = useRouter();
+  const { data: session, isPending } = useSession();
+  const [isLoading, setIsLoading] = useState(true);
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [videos, setVideos] = useState<Video[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [videoTitle, setVideoTitle] = useState("");
+  const [videoDescription, setVideoDescription] = useState("");
+  const [editingVideo, setEditingVideo] = useState<Video | null>(null);
+
+  useEffect(() => {
+    if (!isPending && !session?.user) {
+      router.push("/login");
+    }
+  }, [session, isPending, router]);
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      if (!session?.user) return;
+
+      try {
+        const token = localStorage.getItem("bearer_token");
+        const response = await fetch("/api/profiles/me", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setProfile(data);
+
+          // Fetch videos if entrepreneur
+          if (data.role === "entrepreneur") {
+            const videosResponse = await fetch(`/api/videos/profile/${data.id}`, {
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            });
+
+            if (videosResponse.ok) {
+              const videosData = await videosResponse.json();
+              setVideos(videosData);
+            }
+          }
+        }
+      } catch (error) {
+        toast.error("Failed to load profile");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchProfile();
+  }, [session]);
+
+  const onDrop = useCallback(async (acceptedFiles: File[]) => {
+    if (acceptedFiles.length === 0) return;
+    if (!profile) return;
+
+    const file = acceptedFiles[0];
+    
+    // Validate file type
+    if (!file.type.startsWith("video/")) {
+      toast.error("Please upload a video file");
+      return;
+    }
+
+    // Validate file size (500MB)
+    if (file.size > 500 * 1024 * 1024) {
+      toast.error("Video must be less than 500MB");
+      return;
+    }
+
+    // Validate title
+    if (!videoTitle.trim()) {
+      toast.error("Please enter a video title");
+      return;
+    }
+
+    // Validate not placeholder
+    const lowerTitle = videoTitle.toLowerCase();
+    if (lowerTitle.includes("test") || lowerTitle.includes("lorem") || lowerTitle === "untitled") {
+      toast.error("Please provide a meaningful title for your video");
+      return;
+    }
+
+    setIsUploading(true);
+    setUploadProgress(0);
+
+    try {
+      // Upload to Supabase Storage
+      const fileExt = file.name.split(".").pop();
+      const fileName = `${profile.id}-${Date.now()}.${fileExt}`;
+      const filePath = `videos/${fileName}`;
+
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from("pitch-videos")
+        .upload(filePath, file, {
+          onUploadProgress: (progress) => {
+            const percent = (progress.loaded / progress.total) * 100;
+            setUploadProgress(Math.round(percent));
+          },
+        });
+
+      if (uploadError) {
+        throw uploadError;
+      }
+
+      // Get public URL
+      const { data: urlData } = supabase.storage
+        .from("pitch-videos")
+        .getPublicUrl(filePath);
+
+      // Create video record
+      const token = localStorage.getItem("bearer_token");
+      const response = await fetch("/api/videos", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          profileId: profile.id,
+          title: videoTitle.trim(),
+          description: videoDescription.trim() || null,
+          videoUrl: urlData.publicUrl,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to create video record");
+      }
+
+      const video = await response.json();
+      setVideos([video, ...videos]);
+      setVideoTitle("");
+      setVideoDescription("");
+      toast.success("Video uploaded successfully!");
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to upload video");
+    } finally {
+      setIsUploading(false);
+      setUploadProgress(0);
+    }
+  }, [profile, videos, videoTitle, videoDescription]);
+
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop,
+    accept: {
+      "video/*": [".mp4", ".mov", ".avi", ".mkv", ".webm"],
+    },
+    maxFiles: 1,
+    disabled: isUploading,
+  });
+
+  const handleDeleteVideo = async (videoId: number) => {
+    try {
+      const token = localStorage.getItem("bearer_token");
+      const response = await fetch(`/api/videos/${videoId}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        setVideos(videos.filter((v) => v.id !== videoId));
+        toast.success("Video deleted");
+      } else {
+        toast.error("Failed to delete video");
+      }
+    } catch (error) {
+      toast.error("An error occurred");
+    }
+  };
+
+  const handleEditVideo = async () => {
+    if (!editingVideo) return;
+
+    try {
+      const token = localStorage.getItem("bearer_token");
+      const response = await fetch(`/api/videos/${editingVideo.id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          title: editingVideo.title,
+          description: editingVideo.description,
+        }),
+      });
+
+      if (response.ok) {
+        const updatedVideo = await response.json();
+        setVideos(videos.map((v) => (v.id === updatedVideo.id ? updatedVideo : v)));
+        setEditingVideo(null);
+        toast.success("Video updated");
+      } else {
+        toast.error("Failed to update video");
+      }
+    } catch (error) {
+      toast.error("An error occurred");
+    }
+  };
+
+  if (isPending || isLoading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Navigation />
+        <div className="mx-auto max-w-5xl px-6 py-12 sm:px-8">
+          <div className="animate-pulse space-y-6">
+            <div className="h-32 bg-muted/30 rounded-2xl" />
+            <div className="h-64 bg-muted/30 rounded-2xl" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!session?.user || !profile) {
+    return null;
+  }
+
+  return (
+    <div className="min-h-screen bg-background">
+      <Navigation />
+
+      <div className="mx-auto max-w-5xl px-6 py-12 sm:px-8">
+        {/* Header */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+          className="mb-12"
+        >
+          <h1 className="text-3xl font-light text-foreground tracking-wide">Profile</h1>
+          <p className="mt-2 text-sm font-light text-muted-foreground tracking-wide">
+            Manage your profile and pitch videos
+          </p>
+        </motion.div>
+
+        {/* Profile Card */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.1, ease: [0.22, 1, 0.36, 1] }}
+          className="mb-12 rounded-2xl border border-border/40 bg-card p-10 shadow-sm"
+        >
+          <div className="flex flex-col sm:flex-row items-center sm:items-start gap-8">
+            <div className="flex h-24 w-24 items-center justify-center rounded-full bg-gradient-to-br from-foreground/5 to-foreground/10 text-foreground font-light text-4xl">
+              {session.user.name?.charAt(0) || "U"}
+            </div>
+            <div className="flex-1 text-center sm:text-left">
+              <h2 className="text-2xl font-light text-foreground tracking-wide">
+                {session.user.name}
+              </h2>
+              <p className="text-muted-foreground capitalize mt-2 text-sm font-light tracking-wide">{profile.role}</p>
+              <p className="text-xs font-light text-muted-foreground mt-2 tracking-wide">{session.user.email}</p>
+              {profile.bio && (
+                <p className="text-sm font-light text-muted-foreground mt-4 leading-relaxed tracking-wide">{profile.bio}</p>
+              )}
+            </div>
+          </div>
+        </motion.div>
+
+        {/* Video Upload Section (Entrepreneurs only) */}
+        {profile.role === "entrepreneur" && (
+          <div className="space-y-8">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.2, ease: [0.22, 1, 0.36, 1] }}
+            >
+              <div className="flex items-center gap-3 mb-8">
+                <VideoIcon className="h-5 w-5 text-foreground" strokeWidth={1.5} />
+                <div>
+                  <h2 className="text-2xl font-light text-foreground tracking-wide">Pitch Videos</h2>
+                  <p className="text-xs font-light text-muted-foreground mt-1 tracking-wide">
+                    Showcase your startup with compelling presentations
+                  </p>
+                </div>
+              </div>
+
+              {/* Upload Form */}
+              <div className="rounded-2xl border border-border/40 bg-card p-8 shadow-sm">
+                <div className="mb-8 space-y-6">
+                  <div>
+                    <label className="block text-xs font-light text-foreground mb-3 tracking-wide">
+                      Video Title *
+                    </label>
+                    <input
+                      type="text"
+                      value={videoTitle}
+                      onChange={(e) => setVideoTitle(e.target.value)}
+                      placeholder="Give your pitch a compelling title"
+                      className="w-full rounded-xl border border-input/40 bg-background px-4 py-3 text-sm font-light text-foreground placeholder-muted-foreground focus:border-foreground/20 focus:outline-none focus:ring-1 focus:ring-foreground/10 transition-all tracking-wide"
+                      disabled={isUploading}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-light text-foreground mb-3 tracking-wide">
+                      Description (Optional)
+                    </label>
+                    <textarea
+                      value={videoDescription}
+                      onChange={(e) => setVideoDescription(e.target.value)}
+                      placeholder="Describe what makes your startup unique..."
+                      rows={3}
+                      className="w-full rounded-xl border border-input/40 bg-background px-4 py-3 text-sm font-light text-foreground placeholder-muted-foreground focus:border-foreground/20 focus:outline-none focus:ring-1 focus:ring-foreground/10 transition-all resize-none tracking-wide"
+                      disabled={isUploading}
+                    />
+                  </div>
+                </div>
+
+                <div
+                  {...getRootProps()}
+                  className={`cursor-pointer rounded-2xl border border-dashed p-16 text-center transition-all duration-400 ${
+                    isDragActive
+                      ? "border-foreground/40 bg-foreground/5 scale-[1.01]"
+                      : "border-border/40 bg-muted/10 hover:bg-muted/20 hover:border-foreground/20"
+                  } ${isUploading ? "opacity-50 cursor-not-allowed" : ""}`}
+                >
+                  <input {...getInputProps()} />
+                  {isUploading ? (
+                    <div>
+                      <div className="mx-auto mb-6 h-12 w-12 animate-spin rounded-full border-2 border-foreground border-t-transparent" />
+                      <p className="text-base font-light text-foreground tracking-wide">
+                        Uploading... {uploadProgress}%
+                      </p>
+                      <div className="mx-auto mt-5 h-1 w-64 rounded-full bg-muted overflow-hidden">
+                        <div
+                          className="h-full bg-foreground transition-all duration-300"
+                          style={{ width: `${uploadProgress}%` }}
+                        />
+                      </div>
+                    </div>
+                  ) : isDragActive ? (
+                    <div>
+                      <Upload className="mx-auto h-12 w-12 text-foreground mb-5" strokeWidth={1.5} />
+                      <p className="text-base font-light text-foreground tracking-wide">Drop video here</p>
+                      <p className="text-xs font-light text-muted-foreground mt-2 tracking-wide">
+                        Release to upload
+                      </p>
+                    </div>
+                  ) : (
+                    <div>
+                      <Upload className="mx-auto h-12 w-12 text-muted-foreground mb-5" strokeWidth={1.5} />
+                      <p className="text-base font-light text-foreground mb-2 tracking-wide">
+                        Drag and drop your video
+                      </p>
+                      <p className="text-xs font-light text-muted-foreground mb-5 tracking-wide">
+                        or click to browse
+                      </p>
+                      <div className="flex items-center justify-center gap-2 text-xs font-light text-muted-foreground tracking-wide">
+                        <span>MP4, MOV, AVI, MKV, WebM</span>
+                        <span>•</span>
+                        <span>Max 500MB</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </motion.div>
+
+            {/* Videos List */}
+            {videos.length > 0 ? (
+              <div className="space-y-6">
+                <h3 className="text-lg font-light text-foreground tracking-wide">
+                  Your Videos ({videos.length})
+                </h3>
+                {videos.map((video, index) => (
+                  <motion.div
+                    key={video.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.6, delay: 0.3 + index * 0.05, ease: [0.22, 1, 0.36, 1] }}
+                    className="rounded-2xl border border-border/40 bg-card overflow-hidden shadow-sm hover:shadow-lg transition-all duration-400"
+                  >
+                    {editingVideo?.id === video.id ? (
+                      <div className="p-8">
+                        <div className="space-y-5 mb-6">
+                          <div>
+                            <label className="block text-xs font-light text-foreground mb-2 tracking-wide">
+                              Title
+                            </label>
+                            <input
+                              type="text"
+                              value={editingVideo.title}
+                              onChange={(e) =>
+                                setEditingVideo({ ...editingVideo, title: e.target.value })
+                              }
+                              className="w-full rounded-xl border border-input/40 bg-background px-4 py-3 text-sm font-light text-foreground focus:border-foreground/20 focus:outline-none focus:ring-1 focus:ring-foreground/10 transition-all tracking-wide"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-light text-foreground mb-2 tracking-wide">
+                              Description
+                            </label>
+                            <textarea
+                              value={editingVideo.description || ""}
+                              onChange={(e) =>
+                                setEditingVideo({ ...editingVideo, description: e.target.value })
+                              }
+                              rows={3}
+                              className="w-full rounded-xl border border-input/40 bg-background px-4 py-3 text-sm font-light text-foreground focus:border-foreground/20 focus:outline-none focus:ring-1 focus:ring-foreground/10 transition-all resize-none tracking-wide"
+                            />
+                          </div>
+                        </div>
+                        <div className="flex gap-3">
+                          <motion.button
+                            whileHover={{ y: -1 }}
+                            whileTap={{ scale: 0.99 }}
+                            onClick={handleEditVideo}
+                            className="flex items-center gap-2 rounded-xl bg-foreground px-5 py-2.5 text-xs font-light text-background hover:shadow-lg transition-all duration-400 tracking-wide"
+                          >
+                            <Check className="h-3.5 w-3.5" strokeWidth={1.5} />
+                            Save
+                          </motion.button>
+                          <motion.button
+                            whileHover={{ y: -1 }}
+                            whileTap={{ scale: 0.99 }}
+                            onClick={() => setEditingVideo(null)}
+                            className="flex items-center gap-2 rounded-xl border border-border/40 bg-background px-5 py-2.5 text-xs font-light text-foreground hover:bg-muted/20 transition-all duration-400 tracking-wide"
+                          >
+                            <X className="h-3.5 w-3.5" strokeWidth={1.5} />
+                            Cancel
+                          </motion.button>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <video
+                          src={video.videoUrl}
+                          controls
+                          className="w-full aspect-video object-cover bg-black"
+                          preload="metadata"
+                        />
+                        <div className="p-8">
+                          <div className="flex items-start justify-between mb-4">
+                            <div className="flex-1">
+                              <h3 className="text-base font-light text-foreground tracking-wide">
+                                {video.title}
+                              </h3>
+                              {video.description && (
+                                <p className="mt-2 text-xs font-light text-muted-foreground leading-relaxed tracking-wide">
+                                  {video.description}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-4 text-xs font-light text-muted-foreground tracking-wide">
+                              <span className="flex items-center gap-1.5">
+                                <Eye className="h-3.5 w-3.5" strokeWidth={1.5} />
+                                {video.viewsCount} views
+                              </span>
+                              <span>
+                                {new Date(video.createdAt).toLocaleDateString()}
+                              </span>
+                            </div>
+                            <div className="flex gap-2">
+                              <motion.button
+                                whileHover={{ y: -1 }}
+                                whileTap={{ scale: 0.99 }}
+                                onClick={() => setEditingVideo(video)}
+                                className="flex items-center gap-1.5 rounded-xl border border-border/40 bg-background px-4 py-2 text-xs font-light text-foreground hover:bg-muted/20 transition-all duration-400 tracking-wide"
+                              >
+                                <Edit className="h-3.5 w-3.5" strokeWidth={1.5} />
+                                Edit
+                              </motion.button>
+                              <motion.button
+                                whileHover={{ y: -1 }}
+                                whileTap={{ scale: 0.99 }}
+                                onClick={() => handleDeleteVideo(video.id)}
+                                className="flex items-center gap-1.5 rounded-xl border border-destructive/40 bg-background px-4 py-2 text-xs font-light text-destructive hover:bg-destructive/10 transition-all duration-400 tracking-wide"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" strokeWidth={1.5} />
+                                Delete
+                              </motion.button>
+                            </div>
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </motion.div>
+                ))}
+              </div>
+            ) : (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.6, delay: 0.3 }}
+                className="text-center py-16 rounded-2xl border border-border/40 bg-card"
+              >
+                <VideoIcon className="mx-auto h-12 w-12 text-muted-foreground mb-5" strokeWidth={1.5} />
+                <p className="text-sm font-light text-muted-foreground tracking-wide">
+                  No videos yet. Upload your first pitch above
+                </p>
+              </motion.div>
+            )}
+          </div>
+        )}
+
+        {profile.role === "investor" && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.2, ease: [0.22, 1, 0.36, 1] }}
+            className="rounded-2xl border border-border/40 bg-card p-16 text-center"
+          >
+            <div className="mx-auto h-16 w-16 rounded-full bg-foreground/5 flex items-center justify-center mb-6">
+              <VideoIcon className="h-7 w-7 text-foreground" strokeWidth={1.5} />
+            </div>
+            <h3 className="text-xl font-light text-foreground mb-3 tracking-wide">
+              Discover Startup Pitches
+            </h3>
+            <p className="text-sm font-light text-muted-foreground mb-8 tracking-wide leading-relaxed">
+              Browse entrepreneur profiles and watch pitch videos
+            </p>
+            <motion.button
+              whileHover={{ y: -1 }}
+              whileTap={{ scale: 0.99 }}
+              onClick={() => router.push("/browse")}
+              className="rounded-xl bg-foreground px-8 py-3 font-light text-sm text-background hover:shadow-lg transition-all duration-400 tracking-wide"
+            >
+              Browse Startups
+            </motion.button>
+          </motion.div>
+        )}
+      </div>
+    </div>
+  );
+}
