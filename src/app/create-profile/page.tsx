@@ -16,7 +16,8 @@ import {
   X,
   Loader2,
   Image as ImageIcon,
-  PlayCircle
+  PlayCircle,
+  AlertCircle
 } from "lucide-react";
 
 type ProfileStep = 1 | 2 | 3 | 4;
@@ -405,8 +406,32 @@ export default function CreateProfilePage() {
 
           if (!videoResponse.ok) {
             const error = await videoResponse.json();
-            toast.error(error.error || "Failed to upload video");
-            return;
+            
+            // Show specific error message for Supabase issues
+            if (error.code === 'SUPABASE_CONNECTION_FAILED') {
+              toast.error("Video upload failed: Supabase storage not configured", {
+                description: "Your profile was created, but video upload requires Supabase setup. Please contact support.",
+                duration: 6000
+              });
+            } else {
+              toast.error(error.error || "Failed to upload video");
+            }
+            
+            // Continue to dashboard even if video upload fails
+            console.warn("Video upload failed, but profile was created");
+          } else {
+            const videoResult = await videoResponse.json();
+            
+            // Show warning if using placeholder upload
+            if (videoResult.uploadMethod === 'placeholder') {
+              toast.warning("Profile created successfully!", {
+                description: "Video metadata saved. Actual video upload requires Supabase configuration.",
+                duration: 5000,
+                icon: <AlertCircle className="h-5 w-5" />
+              });
+            } else {
+              toast.success("Video uploaded successfully!");
+            }
           }
         }
       } else {
@@ -432,8 +457,14 @@ export default function CreateProfilePage() {
       }
 
       toast.success("Profile created successfully! Welcome to PitchMatch!");
-      router.push("/dashboard");
+      
+      // Small delay to show success message
+      setTimeout(() => {
+        router.push("/dashboard");
+      }, 1500);
+      
     } catch (error) {
+      console.error("Profile creation error:", error);
       toast.error("An error occurred. Please try again.");
     } finally {
       setIsLoading(false);

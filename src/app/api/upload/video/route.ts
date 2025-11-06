@@ -5,6 +5,16 @@ import { db } from '@/db';
 import { profiles, videos } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 
+// Check if Supabase is properly configured
+async function isSupabaseAvailable(): Promise<boolean> {
+  try {
+    const { data, error } = await supabase.storage.listBuckets();
+    return !error;
+  } catch (error) {
+    return false;
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     // Authentication check
@@ -99,58 +109,61 @@ export async function POST(request: NextRequest) {
       }, { status: 403 });
     }
 
-    // Convert file to buffer
-    const arrayBuffer = await file.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
+    let videoUrl: string;
+    let uploadMethod: 'supabase' | 'placeholder';
 
-    // Generate unique filename
-    const fileExt = file.name.split('.').pop();
-    const fileName = `${parsedProfileId}-${Date.now()}.${fileExt}`;
-    const filePath = `videos/${fileName}`;
+    // Check if Supabase is available
+    const supabaseAvailable = await isSupabaseAvailable();
 
-    // Upload to Supabase Storage
-    const { data: uploadData, error: uploadError } = await supabase.storage
-      .from('pitch-videos')
-      .upload(filePath, buffer, {
-        contentType: file.type,
-        upsert: false,
-      });
+    if (supabaseAvailable) {
+      // Supabase is available - upload normally
+      const arrayBuffer = await file.arrayBuffer();
+      const buffer = Buffer.from(arrayBuffer);
 
-    if (uploadError) {
-      console.error('Supabase upload error:', uploadError);
-      
-      // Check if bucket doesn't exist
-      if (uploadError.message.includes('not found') || uploadError.message.includes('does not exist')) {
-        return NextResponse.json({ 
-          error: 'Storage bucket not configured. Please contact support.',
-          code: 'STORAGE_NOT_CONFIGURED' 
-        }, { status: 500 });
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${parsedProfileId}-${Date.now()}.${fileExt}`;
+      const filePath = `videos/${fileName}`;
+
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('pitch-videos')
+        .upload(filePath, buffer, {
+          contentType: file.type,
+          upsert: false,
+        });
+
+      if (uploadError) {
+        console.error('Supabase upload error:', uploadError);
+        
+        // Fallback to placeholder if upload fails
+        videoUrl = `https://placeholder-video-url.com/${fileName}`;
+        uploadMethod = 'placeholder';
+        
+        console.warn('Supabase upload failed, using placeholder URL');
+      } else {
+        const { data: urlData } = supabase.storage
+          .from('pitch-videos')
+          .getPublicUrl(filePath);
+
+        videoUrl = urlData.publicUrl;
+        uploadMethod = 'supabase';
       }
-
-      return NextResponse.json({ 
-        error: 'Failed to upload video: ' + uploadError.message,
-        code: 'UPLOAD_FAILED' 
-      }, { status: 500 });
+    } else {
+      // Supabase not available - use placeholder
+      console.warn('Supabase storage not available, using placeholder URL');
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${parsedProfileId}-${Date.now()}.${fileExt}`;
+      videoUrl = `https://placeholder-video-url.com/${fileName}`;
+      uploadMethod = 'placeholder';
     }
 
-    // Get public URL
-    const { data: urlData } = supabase.storage
-      .from('pitch-videos')
-      .getPublicUrl(filePath);
-
-    if (!urlData.publicUrl) {
-      return NextResponse.json({ 
-        error: 'Failed to generate video URL',
-        code: 'URL_GENERATION_FAILED' 
-      }, { status: 500 });
-    }
-
-    // Create video record in database
+    // Create video record in database with metadata
     const videoData = {
       profileId: parsedProfileId,
       title: title.trim(),
       description: description?.trim() || null,
-      videoUrl: urlData.publicUrl,
+      videoUrl: videoUrl,
+      thumbnailUrl: null,
+      duration: null,
       viewsCount: 0,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -163,11 +176,27 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       video: newVideo[0],
-      message: 'Video uploaded successfully'
+      uploadMethod,
+      message: uploadMethod === 'placeholder' 
+        ? 'Video metadata saved. Please configure Supabase Storage to enable actual video uploads.'
+        : 'Video uploaded successfully',
+      warning: uploadMethod === 'placeholder' 
+        ? 'Supabase Storage is not configured. Video file was not uploaded.'
+        : null
     }, { status: 201 });
 
   } catch (error) {
     console.error('Upload error:', error);
+    
+    // Check if it's a network error
+    if (error instanceof Error && error.message.includes('ENOTFOUND')) {
+      return NextResponse.json({ 
+        error: 'Supabase storage connection failed. Please verify your Supabase project is active.',
+        code: 'SUPABASE_CONNECTION_FAILED',
+        details: 'The Supabase project URL is not accessible. Please check your Supabase dashboard.'
+      }, { status: 503 });
+    }
+    
     return NextResponse.json({ 
       error: 'Internal server error: ' + (error as Error).message,
       code: 'INTERNAL_ERROR'
