@@ -9,7 +9,7 @@ import { toast } from "sonner";
 import { StatCard } from "@/components/AnimatedCard";
 import { DashboardStatSkeleton, VideoCardSkeleton } from "@/components/SkeletonLoaders";
 import { EmptyState } from "@/components/EmptyState";
-import { Users, Video, Bell, TrendingUp, Play, Eye } from "lucide-react";
+import { Users, Video, Bell, TrendingUp, Play, Eye, Check, X, UserPlus } from "lucide-react";
 import { formatNumber, formatDate } from "@/lib/utils";
 import { motion } from "framer-motion";
 
@@ -41,6 +41,8 @@ interface Connection {
   recipientId: number;
   status: string;
   createdAt: string;
+  requesterProfile?: any;
+  recipientProfile?: any;
 }
 
 export default function DashboardPage() {
@@ -50,7 +52,9 @@ export default function DashboardPage() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [videos, setVideos] = useState<Video[]>([]);
   const [connections, setConnections] = useState<Connection[]>([]);
+  const [pendingRequests, setPendingRequests] = useState<Connection[]>([]);
   const [notifications, setNotifications] = useState<any[]>([]);
+  const [processingRequest, setProcessingRequest] = useState<number | null>(null);
 
   useEffect(() => {
     if (!isPending && !session?.user) {
@@ -95,6 +99,19 @@ export default function DashboardPage() {
           setConnections(connectionsData);
         }
 
+        // Fetch pending connection requests where user is recipient
+        const pendingResponse = await fetch("/api/connections?status=pending", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (pendingResponse.ok) {
+          const pendingData = await pendingResponse.json();
+          // Filter only requests where current user is the recipient
+          const incomingRequests = pendingData.filter(
+            (conn: Connection) => conn.recipientId === profileData.id
+          );
+          setPendingRequests(incomingRequests);
+        }
+
         const notificationsResponse = await fetch("/api/notifications?limit=5", {
           headers: { Authorization: `Bearer ${token}` },
         });
@@ -111,6 +128,40 @@ export default function DashboardPage() {
 
     fetchDashboardData();
   }, [session, router]);
+
+  const handleConnectionRequest = async (connectionId: number, action: "accepted" | "rejected") => {
+    setProcessingRequest(connectionId);
+    try {
+      const token = localStorage.getItem("bearer_token");
+      const response = await fetch(`/api/connections/${connectionId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ status: action }),
+      });
+
+      if (response.ok) {
+        toast.success(action === "accepted" ? "Connection accepted!" : "Connection rejected");
+        // Remove from pending list
+        setPendingRequests(prev => prev.filter(req => req.id !== connectionId));
+        
+        // If accepted, add to connections count
+        if (action === "accepted") {
+          const updatedConnection = await response.json();
+          setConnections(prev => [...prev, updatedConnection]);
+        }
+      } else {
+        const error = await response.json();
+        toast.error(error.error || "Failed to update connection");
+      }
+    } catch (error) {
+      toast.error("An error occurred");
+    } finally {
+      setProcessingRequest(null);
+    }
+  };
 
   if (isPending || isLoading) {
     return (
@@ -157,6 +208,84 @@ export default function DashboardPage() {
             {profile.role === "entrepreneur" ? "Your startup dashboard" : "Your investment overview"}
           </p>
         </motion.div>
+
+        {/* Connection Requests Alert */}
+        {pendingRequests.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+            className="mb-8 rounded-2xl border border-border/40 bg-card p-6"
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-foreground/5">
+                  <UserPlus className="h-5 w-5 text-foreground" strokeWidth={1.5} />
+                </div>
+                <div>
+                  <h3 className="text-base font-light text-foreground tracking-wide">
+                    {pendingRequests.length} Pending Connection Request{pendingRequests.length > 1 ? 's' : ''}
+                  </h3>
+                  <p className="text-xs font-light text-muted-foreground tracking-wide">
+                    Review and respond to connection requests
+                  </p>
+                </div>
+              </div>
+            </div>
+            
+            <div className="mt-6 space-y-3">
+              {pendingRequests.map((request, i) => {
+                const requester = request.requesterProfile;
+                return (
+                  <motion.div
+                    key={request.id}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.4, delay: i * 0.05 }}
+                    className="flex items-center justify-between rounded-xl border border-border/40 bg-background p-4"
+                  >
+                    <div className="flex items-center gap-3 flex-1">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-foreground/5 to-foreground/10 text-foreground font-light text-lg">
+                        {requester?.userId?.charAt(0) || "U"}
+                      </div>
+                      <div className="flex-1">
+                        <h4 className="text-sm font-light text-foreground tracking-wide">
+                          {requester?.userId || "Unknown User"}
+                        </h4>
+                        <p className="text-xs font-light text-muted-foreground capitalize tracking-wide">
+                          {requester?.role || "User"} • {formatDate(request.createdAt)}
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-2 ml-4">
+                      <motion.button
+                        whileHover={{ y: -1 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => handleConnectionRequest(request.id, "accepted")}
+                        disabled={processingRequest === request.id}
+                        className="flex items-center gap-1.5 rounded-lg bg-foreground px-4 py-2 text-xs font-light text-background hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed tracking-wide"
+                      >
+                        <Check className="h-3.5 w-3.5" strokeWidth={1.5} />
+                        Accept
+                      </motion.button>
+                      <motion.button
+                        whileHover={{ y: -1 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => handleConnectionRequest(request.id, "rejected")}
+                        disabled={processingRequest === request.id}
+                        className="flex items-center gap-1.5 rounded-lg border border-border/40 bg-background px-4 py-2 text-xs font-light text-foreground hover:bg-muted/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed tracking-wide"
+                      >
+                        <X className="h-3.5 w-3.5" strokeWidth={1.5} />
+                        Reject
+                      </motion.button>
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </div>
+          </motion.div>
+        )}
 
         {/* Stats Grid */}
         <div className="mb-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
