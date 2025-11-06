@@ -5,10 +5,10 @@ import { eq, desc, asc } from 'drizzle-orm';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { profileId: string } }
+  { params }: { params: Promise<{ profileId: string }> }
 ) {
   try {
-    const profileId = params.profileId;
+    const { profileId } = await params;
     
     // Validate profileId is a valid integer
     if (!profileId || isNaN(parseInt(profileId))) {

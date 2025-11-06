@@ -5,11 +5,11 @@ import { eq, and, or, gte, desc, sql } from 'drizzle-orm';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ profileId: string }> }
 ) {
   try {
-    const { id } = await params;
-    const profileId = parseInt(id);
+    const { profileId: profileIdParam } = await params;
+    const profileId = parseInt(profileIdParam);
 
     // Validate profileId
     if (!profileId || isNaN(profileId)) {
