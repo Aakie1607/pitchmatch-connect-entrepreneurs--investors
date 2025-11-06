@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
 
     const userId = session.user.id;
 
-    // Query profile by userId
+    // Optimized: Use indexed userId field for fast lookup
     const profile = await db.select()
       .from(profiles)
       .where(eq(profiles.userId, userId))
@@ -33,7 +33,11 @@ export async function GET(request: NextRequest) {
       }, { status: 404 });
     }
 
-    return NextResponse.json(profile[0], { status: 200 });
+    // Add caching headers for GET request
+    const response = NextResponse.json(profile[0], { status: 200 });
+    response.headers.set('Cache-Control', 'private, max-age=60, stale-while-revalidate=30');
+    
+    return response;
 
   } catch (error) {
     console.error('GET profile error:', error);

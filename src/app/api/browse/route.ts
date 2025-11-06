@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
-import { profiles, entrepreneurProfiles, investorProfiles } from '@/db/schema';
+import { profiles, entrepreneurProfiles, investorProfiles, user } from '@/db/schema';
 import { eq, like, and, or, desc } from 'drizzle-orm';
 
 export async function GET(request: NextRequest) {
@@ -58,39 +58,12 @@ export async function GET(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // Build the query based on role
+    // Build optimized query based on role
     let results = [];
 
     if (!role || role === 'entrepreneur') {
-      // Query entrepreneur profiles
-      const entrepreneurQuery = db
-        .select({
-          id: profiles.id,
-          userId: profiles.userId,
-          role: profiles.role,
-          profilePicture: profiles.profilePicture,
-          bio: profiles.bio,
-          createdAt: profiles.createdAt,
-          updatedAt: profiles.updatedAt,
-          entrepreneurProfile: {
-            id: entrepreneurProfiles.id,
-            profileId: entrepreneurProfiles.profileId,
-            startupName: entrepreneurProfiles.startupName,
-            businessDescription: entrepreneurProfiles.businessDescription,
-            industry: entrepreneurProfiles.industry,
-            fundingStage: entrepreneurProfiles.fundingStage,
-            location: entrepreneurProfiles.location,
-            website: entrepreneurProfiles.website,
-            createdAt: entrepreneurProfiles.createdAt,
-            updatedAt: entrepreneurProfiles.updatedAt,
-          }
-        })
-        .from(profiles)
-        .leftJoin(entrepreneurProfiles, eq(profiles.id, entrepreneurProfiles.profileId))
-        .where(eq(profiles.role, 'entrepreneur'));
-
-      // Apply entrepreneur-specific filters
-      const entrepreneurConditions = [];
+      // Optimized: Single query with join to get all data at once
+      const entrepreneurConditions = [eq(profiles.role, 'entrepreneur')];
       
       if (industry) {
         entrepreneurConditions.push(eq(entrepreneurProfiles.industry, industry));
@@ -111,27 +84,7 @@ export async function GET(request: NextRequest) {
         );
       }
 
-      if (entrepreneurConditions.length > 0) {
-        const entrepreneurData = await entrepreneurQuery
-          .where(and(eq(profiles.role, 'entrepreneur'), ...entrepreneurConditions))
-          .orderBy(desc(profiles.createdAt))
-          .limit(limit)
-          .offset(offset);
-        
-        results.push(...entrepreneurData);
-      } else {
-        const entrepreneurData = await entrepreneurQuery
-          .orderBy(desc(profiles.createdAt))
-          .limit(limit)
-          .offset(offset);
-        
-        results.push(...entrepreneurData);
-      }
-    }
-
-    if (!role || role === 'investor') {
-      // Query investor profiles
-      const investorQuery = db
+      const entrepreneurData = await db
         .select({
           id: profiles.id,
           userId: profiles.userId,
@@ -140,23 +93,35 @@ export async function GET(request: NextRequest) {
           bio: profiles.bio,
           createdAt: profiles.createdAt,
           updatedAt: profiles.updatedAt,
-          investorProfile: {
-            id: investorProfiles.id,
-            profileId: investorProfiles.profileId,
-            investmentPreferences: investorProfiles.investmentPreferences,
-            industryFocus: investorProfiles.industryFocus,
-            fundingCapacity: investorProfiles.fundingCapacity,
-            location: investorProfiles.location,
-            createdAt: investorProfiles.createdAt,
-            updatedAt: investorProfiles.updatedAt,
+          userName: user.name,
+          userEmail: user.email,
+          entrepreneurProfile: {
+            id: entrepreneurProfiles.id,
+            profileId: entrepreneurProfiles.profileId,
+            startupName: entrepreneurProfiles.startupName,
+            businessDescription: entrepreneurProfiles.businessDescription,
+            industry: entrepreneurProfiles.industry,
+            fundingStage: entrepreneurProfiles.fundingStage,
+            location: entrepreneurProfiles.location,
+            website: entrepreneurProfiles.website,
+            createdAt: entrepreneurProfiles.createdAt,
+            updatedAt: entrepreneurProfiles.updatedAt,
           }
         })
         .from(profiles)
-        .leftJoin(investorProfiles, eq(profiles.id, investorProfiles.profileId))
-        .where(eq(profiles.role, 'investor'));
+        .leftJoin(entrepreneurProfiles, eq(profiles.id, entrepreneurProfiles.profileId))
+        .leftJoin(user, eq(profiles.userId, user.id))
+        .where(and(...entrepreneurConditions))
+        .orderBy(desc(profiles.createdAt))
+        .limit(limit)
+        .offset(offset);
+        
+      results.push(...entrepreneurData);
+    }
 
-      // Apply investor-specific filters
-      const investorConditions = [];
+    if (!role || role === 'investor') {
+      // Optimized: Single query with join to get all data at once
+      const investorConditions = [eq(profiles.role, 'investor')];
       
       if (industryFocus) {
         investorConditions.push(eq(investorProfiles.industryFocus, industryFocus));
@@ -176,22 +141,37 @@ export async function GET(request: NextRequest) {
         );
       }
 
-      if (investorConditions.length > 0) {
-        const investorData = await investorQuery
-          .where(and(eq(profiles.role, 'investor'), ...investorConditions))
-          .orderBy(desc(profiles.createdAt))
-          .limit(limit)
-          .offset(offset);
+      const investorData = await db
+        .select({
+          id: profiles.id,
+          userId: profiles.userId,
+          role: profiles.role,
+          profilePicture: profiles.profilePicture,
+          bio: profiles.bio,
+          createdAt: profiles.createdAt,
+          updatedAt: profiles.updatedAt,
+          userName: user.name,
+          userEmail: user.email,
+          investorProfile: {
+            id: investorProfiles.id,
+            profileId: investorProfiles.profileId,
+            investmentPreferences: investorProfiles.investmentPreferences,
+            industryFocus: investorProfiles.industryFocus,
+            fundingCapacity: investorProfiles.fundingCapacity,
+            location: investorProfiles.location,
+            createdAt: investorProfiles.createdAt,
+            updatedAt: investorProfiles.updatedAt,
+          }
+        })
+        .from(profiles)
+        .leftJoin(investorProfiles, eq(profiles.id, investorProfiles.profileId))
+        .leftJoin(user, eq(profiles.userId, user.id))
+        .where(and(...investorConditions))
+        .orderBy(desc(profiles.createdAt))
+        .limit(limit)
+        .offset(offset);
         
-        results.push(...investorData);
-      } else {
-        const investorData = await investorQuery
-          .orderBy(desc(profiles.createdAt))
-          .limit(limit)
-          .offset(offset);
-        
-        results.push(...investorData);
-      }
+      results.push(...investorData);
     }
 
     // Sort combined results by createdAt and apply pagination if querying both roles
@@ -200,7 +180,11 @@ export async function GET(request: NextRequest) {
       results = results.slice(offset, offset + limit);
     }
 
-    return NextResponse.json(results, { status: 200 });
+    // Add caching headers
+    const response = NextResponse.json(results, { status: 200 });
+    response.headers.set('Cache-Control', 'public, max-age=30, stale-while-revalidate=60');
+    
+    return response;
 
   } catch (error) {
     console.error('GET error:', error);

@@ -18,9 +18,9 @@ export async function GET(
       );
     }
 
-    // Get user's profile
+    // Get user's profile (using indexed userId)
     const userProfile = await db
-      .select()
+      .select({ id: profiles.id })
       .from(profiles)
       .where(eq(profiles.userId, session.user.id))
       .limit(1);
@@ -45,7 +45,7 @@ export async function GET(
       );
     }
 
-    // Verify connection exists
+    // Optimized: Verify connection exists and user is part of it using indexed fields
     const connection = await db
       .select()
       .from(connections)
@@ -84,7 +84,8 @@ export async function GET(
     const sortField = searchParams.get('sort') ?? 'createdAt';
     const order = searchParams.get('order') ?? 'asc';
 
-    // Build query with sender profile details
+    // Optimized: Single query with join to get messages and sender profile data
+    // Uses composite index on (connectionId, createdAt) for fast retrieval
     const orderFn = order === 'desc' ? desc : asc;
     const messagesList = await db
       .select({
@@ -109,7 +110,11 @@ export async function GET(
       .limit(limit)
       .offset(offset);
 
-    return NextResponse.json(messagesList, { status: 200 });
+    // Add caching headers (short cache for real-time messaging)
+    const response = NextResponse.json(messagesList, { status: 200 });
+    response.headers.set('Cache-Control', 'private, max-age=10, stale-while-revalidate=15');
+    
+    return response;
   } catch (error) {
     console.error('GET messages error:', error);
     return NextResponse.json(

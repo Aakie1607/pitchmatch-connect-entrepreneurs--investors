@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
       }, { status: 404 });
     }
 
-    // Check if connection already exists (in either direction)
+    // Optimized: Check for existing connection using composite index
     const existingConnection = await db.select()
       .from(connections)
       .where(
@@ -161,13 +161,13 @@ export async function GET(request: NextRequest) {
     const offset = parseInt(searchParams.get('offset') ?? '0');
     const statusFilter = searchParams.get('status');
 
-    // Build base query for connections where user is requester or recipient
+    // Build base query with indexed fields
     let whereConditions = or(
       eq(connections.requesterId, profileId),
       eq(connections.recipientId, profileId)
     );
 
-    // Add status filter if provided
+    // Add status filter if provided (uses indexed status field)
     if (statusFilter && ['pending', 'accepted', 'rejected'].includes(statusFilter)) {
       whereConditions = and(
         whereConditions,
@@ -175,7 +175,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Get connections
+    // Optimized: Single query with joins to get all connection data at once
     const userConnections = await db.select({
       id: connections.id,
       requesterId: connections.requesterId,
@@ -183,21 +183,30 @@ export async function GET(request: NextRequest) {
       status: connections.status,
       createdAt: connections.createdAt,
       updatedAt: connections.updatedAt,
+      requesterProfile: {
+        id: profiles.id,
+        userId: profiles.userId,
+        role: profiles.role,
+        profilePicture: profiles.profilePicture,
+        bio: profiles.bio,
+        createdAt: profiles.createdAt,
+        updatedAt: profiles.updatedAt,
+      },
+      requesterUser: {
+        name: user.name,
+        email: user.email,
+      }
     })
       .from(connections)
+      .leftJoin(profiles, eq(connections.requesterId, profiles.id))
+      .leftJoin(user, eq(profiles.userId, user.id))
       .where(whereConditions)
       .limit(limit)
       .offset(offset);
 
-    // Get unique profile IDs to fetch
-    const profileIds = new Set<number>();
-    userConnections.forEach(conn => {
-      profileIds.add(conn.requesterId);
-      profileIds.add(conn.recipientId);
-    });
-
-    // Fetch all related profiles with user names
-    const relatedProfiles = await db.select({
+    // Get recipient profiles in a separate optimized query
+    const recipientIds = userConnections.map(conn => conn.recipientId);
+    const recipientProfiles = await db.select({
       id: profiles.id,
       userId: profiles.userId,
       role: profiles.role,
@@ -210,18 +219,14 @@ export async function GET(request: NextRequest) {
     })
       .from(profiles)
       .leftJoin(user, eq(profiles.userId, user.id))
-      .where(
-        or(
-          ...Array.from(profileIds).map(id => eq(profiles.id, id))
-        )
-      );
+      .where(or(...recipientIds.map(id => eq(profiles.id, id))));
 
-    // Create a map of profiles for easy lookup
-    const profileMap = new Map(
-      relatedProfiles.map(profile => [profile.id, profile])
+    // Create map for fast lookup
+    const recipientMap = new Map(
+      recipientProfiles.map(profile => [profile.id, profile])
     );
 
-    // Enrich connections with profile details
+    // Combine data
     const enrichedConnections = userConnections.map(conn => ({
       id: conn.id,
       requesterId: conn.requesterId,
@@ -229,11 +234,19 @@ export async function GET(request: NextRequest) {
       status: conn.status,
       createdAt: conn.createdAt,
       updatedAt: conn.updatedAt,
-      requesterProfile: profileMap.get(conn.requesterId),
-      recipientProfile: profileMap.get(conn.recipientId),
+      requesterProfile: {
+        ...conn.requesterProfile,
+        userName: conn.requesterUser.name,
+        userEmail: conn.requesterUser.email,
+      },
+      recipientProfile: recipientMap.get(conn.recipientId),
     }));
 
-    return NextResponse.json(enrichedConnections, { status: 200 });
+    // Add caching headers
+    const response = NextResponse.json(enrichedConnections, { status: 200 });
+    response.headers.set('Cache-Control', 'private, max-age=30, stale-while-revalidate=30');
+    
+    return response;
 
   } catch (error) {
     console.error('GET error:', error);

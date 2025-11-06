@@ -5,6 +5,7 @@ import { eq, and } from 'drizzle-orm';
 import { auth } from '@/lib/auth';
 
 async function getUserProfile(userId: string) {
+  // Optimized: Use indexed userId for fast lookup
   const profile = await db.select()
     .from(profiles)
     .where(eq(profiles.userId, userId))
@@ -62,6 +63,7 @@ export async function POST(request: NextRequest) {
       }, { status: 404 });
     }
 
+    // Optimized: Use composite index for checking existing favorite
     const existingFavorite = await db.select()
       .from(favorites)
       .where(
@@ -131,6 +133,8 @@ export async function GET(request: NextRequest) {
     const limit = Math.min(parseInt(searchParams.get('limit') ?? '10'), 100);
     const offset = parseInt(searchParams.get('offset') ?? '0');
 
+    // Optimized: Single query with join to get favorites and profile data together
+    // Uses indexed profileId for fast retrieval
     const userFavorites = await db.select({
       id: favorites.id,
       profileId: favorites.profileId,
@@ -152,7 +156,11 @@ export async function GET(request: NextRequest) {
       .limit(limit)
       .offset(offset);
 
-    return NextResponse.json(userFavorites, { status: 200 });
+    // Add caching headers
+    const response = NextResponse.json(userFavorites, { status: 200 });
+    response.headers.set('Cache-Control', 'private, max-age=60, stale-while-revalidate=30');
+    
+    return response;
 
   } catch (error) {
     console.error('GET error:', error);
@@ -192,6 +200,7 @@ export async function DELETE(request: NextRequest) {
       }, { status: 400 });
     }
 
+    // Optimized: Use composite index for checking ownership
     const existingFavorite = await db.select()
       .from(favorites)
       .where(

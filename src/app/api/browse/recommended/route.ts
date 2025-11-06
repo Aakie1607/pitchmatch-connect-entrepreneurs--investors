@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
 
     const userId = session.user.id;
 
-    // Get current user's profile
+    // Optimized: Get current user's profile using indexed userId
     const userProfile = await db.select()
       .from(profiles)
       .where(eq(profiles.userId, userId))
@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
     // Determine target role (opposite of current user's role)
     const targetRole = currentRole === 'entrepreneur' ? 'investor' : 'entrepreneur';
 
-    // Get all connection profile IDs (both as requester and recipient)
+    // Optimized: Get all connection profile IDs using indexed fields
     const existingConnections = await db.select({
       profileId: connections.requesterId,
     })
@@ -58,8 +58,8 @@ export async function GET(request: NextRequest) {
 
     const connectedProfileIds = existingConnections.map(c => c.profileId);
 
-    // Get all favorited profile IDs
-    const favoritedProfiles = await db.select()
+    // Optimized: Get all favorited profile IDs using indexed profileId
+    const favoritedProfiles = await db.select({ favoritedProfileId: favorites.favoritedProfileId })
       .from(favorites)
       .where(eq(favorites.profileId, currentProfileId));
 
@@ -97,63 +97,71 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Build base query for profiles with opposite role
-    let baseQuery = db.select()
-      .from(profiles)
-      .where(eq(profiles.role, targetRole));
-
-    // Apply exclusions if there are any
+    // Optimized: Build single query with all joins to fetch profiles with role-specific data
+    let baseConditions = [eq(profiles.role, targetRole)];
     if (excludedProfileIds.length > 0) {
-      baseQuery = baseQuery.where(
-        and(
-          eq(profiles.role, targetRole),
-          notInArray(profiles.id, excludedProfileIds)
-        )
-      );
+      baseConditions.push(notInArray(profiles.id, excludedProfileIds));
     }
 
-    // Get all candidate profiles
-    const candidateProfiles = await baseQuery;
+    let candidateProfiles;
+    
+    if (targetRole === 'entrepreneur') {
+      candidateProfiles = await db.select({
+        id: profiles.id,
+        userId: profiles.userId,
+        role: profiles.role,
+        profilePicture: profiles.profilePicture,
+        bio: profiles.bio,
+        createdAt: profiles.createdAt,
+        updatedAt: profiles.updatedAt,
+        userName: user.name,
+        userEmail: user.email,
+        roleData: {
+          industry: entrepreneurProfiles.industry,
+          location: entrepreneurProfiles.location,
+          startupName: entrepreneurProfiles.startupName,
+          businessDescription: entrepreneurProfiles.businessDescription,
+          fundingStage: entrepreneurProfiles.fundingStage,
+          website: entrepreneurProfiles.website,
+        }
+      })
+        .from(profiles)
+        .leftJoin(entrepreneurProfiles, eq(profiles.id, entrepreneurProfiles.profileId))
+        .leftJoin(user, eq(profiles.userId, user.id))
+        .where(and(...baseConditions));
+    } else {
+      candidateProfiles = await db.select({
+        id: profiles.id,
+        userId: profiles.userId,
+        role: profiles.role,
+        profilePicture: profiles.profilePicture,
+        bio: profiles.bio,
+        createdAt: profiles.createdAt,
+        updatedAt: profiles.updatedAt,
+        userName: user.name,
+        userEmail: user.email,
+        roleData: {
+          industryFocus: investorProfiles.industryFocus,
+          location: investorProfiles.location,
+          investmentPreferences: investorProfiles.investmentPreferences,
+          fundingCapacity: investorProfiles.fundingCapacity,
+        }
+      })
+        .from(profiles)
+        .leftJoin(investorProfiles, eq(profiles.id, investorProfiles.profileId))
+        .leftJoin(user, eq(profiles.userId, user.id))
+        .where(and(...baseConditions));
+    }
 
     if (candidateProfiles.length === 0) {
       return NextResponse.json([]);
     }
 
-    const profileIds = candidateProfiles.map(p => p.id);
-
-    // Get role-specific data for all candidates
-    let roleSpecificData: any[] = [];
-
-    if (targetRole === 'entrepreneur') {
-      roleSpecificData = await db.select()
-        .from(entrepreneurProfiles)
-        .where(inArray(entrepreneurProfiles.profileId, profileIds));
-    } else if (targetRole === 'investor') {
-      roleSpecificData = await db.select()
-        .from(investorProfiles)
-        .where(inArray(investorProfiles.profileId, profileIds));
-    }
-
-    // Create a map of role-specific data by profileId
-    const roleDataMap = new Map(
-      roleSpecificData.map(data => [data.profileId, data])
-    );
-
-    // Get user data for all candidate profiles
-    const userIds = candidateProfiles.map(p => p.userId);
-    const users = await db.select()
-      .from(user)
-      .where(inArray(user.id, userIds));
-
-    const userMap = new Map(users.map(u => [u.id, u]));
-
-    // Combine profiles with role-specific data and calculate relevance score
-    const profilesWithData = candidateProfiles.map(profile => {
-      const roleData = roleDataMap.get(profile.id);
-      const userData = userMap.get(profile.userId);
+    // Calculate relevance score and sort
+    const profilesWithScore = candidateProfiles.map(profile => {
       let relevanceScore = 0;
+      const roleData = profile.roleData;
 
-      // Calculate relevance based on matching criteria
       if (roleData) {
         const candidateIndustry = targetRole === 'entrepreneur' 
           ? roleData.industry 
@@ -181,18 +189,11 @@ export async function GET(request: NextRequest) {
         }
       }
 
-      return {
-        ...profile,
-        name: userData?.name,
-        email: userData?.email,
-        image: userData?.image,
-        ...(roleData || {}),
-        relevanceScore,
-      };
+      return { ...profile, relevanceScore };
     });
 
     // Sort by relevance score (highest first), then by createdAt (newest first)
-    profilesWithData.sort((a, b) => {
+    profilesWithScore.sort((a, b) => {
       if (b.relevanceScore !== a.relevanceScore) {
         return b.relevanceScore - a.relevanceScore;
       }
@@ -200,12 +201,16 @@ export async function GET(request: NextRequest) {
     });
 
     // Apply pagination
-    const paginatedProfiles = profilesWithData.slice(offset, offset + limit);
+    const paginatedProfiles = profilesWithScore.slice(offset, offset + limit);
 
     // Remove relevance score from response
     const results = paginatedProfiles.map(({ relevanceScore, ...profile }) => profile);
 
-    return NextResponse.json(results, { status: 200 });
+    // Add caching headers
+    const response = NextResponse.json(results, { status: 200 });
+    response.headers.set('Cache-Control', 'private, max-age=60, stale-while-revalidate=60');
+    
+    return response;
 
   } catch (error) {
     console.error('GET recommendations error:', error);

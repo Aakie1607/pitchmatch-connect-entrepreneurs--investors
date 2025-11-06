@@ -15,8 +15,8 @@ export async function GET(request: NextRequest) {
       }, { status: 401 });
     }
 
-    // Get user's profile
-    const userProfile = await db.select()
+    // Optimized: Get user's profile using indexed userId
+    const userProfile = await db.select({ id: profiles.id })
       .from(profiles)
       .where(eq(profiles.userId, session.user.id))
       .limit(1);
@@ -36,31 +36,34 @@ export async function GET(request: NextRequest) {
     const offset = parseInt(searchParams.get('offset') ?? '0');
     const isReadParam = searchParams.get('isRead');
 
-    // Build query
-    let query = db.select()
-      .from(notifications)
-      .where(eq(notifications.profileId, profileId));
-
-    // Apply isRead filter if provided
+    // Optimized: Build query using composite index (profileId, isRead) for fast filtering
+    let whereConditions;
+    
     if (isReadParam !== null) {
       const isReadValue = isReadParam === 'true';
-      query = db.select()
-        .from(notifications)
-        .where(
-          and(
-            eq(notifications.profileId, profileId),
-            eq(notifications.isRead, isReadValue)
-          )
-        );
+      // Uses composite index: notifications_profile_read_idx
+      whereConditions = and(
+        eq(notifications.profileId, profileId),
+        eq(notifications.isRead, isReadValue)
+      );
+    } else {
+      // Uses single index: notifications_profile_id_idx
+      whereConditions = eq(notifications.profileId, profileId);
     }
 
-    // Execute query with sorting and pagination
-    const results = await query
+    // Execute query with indexed fields for sorting (createdAt is indexed)
+    const results = await db.select()
+      .from(notifications)
+      .where(whereConditions)
       .orderBy(desc(notifications.createdAt))
       .limit(limit)
       .offset(offset);
 
-    return NextResponse.json(results, { status: 200 });
+    // Add caching headers (short cache for real-time notifications)
+    const response = NextResponse.json(results, { status: 200 });
+    response.headers.set('Cache-Control', 'private, max-age=15, stale-while-revalidate=30');
+    
+    return response;
 
   } catch (error) {
     console.error('GET error:', error);

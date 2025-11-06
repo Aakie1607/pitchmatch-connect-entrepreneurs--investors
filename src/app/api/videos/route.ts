@@ -156,7 +156,7 @@ export async function GET(request: NextRequest) {
     // Build where conditions
     const whereConditions = [];
 
-    // Filter by profileId if provided
+    // Optimized: Filter by profileId using indexed field
     if (profileIdParam) {
       const parsedProfileId = parseInt(profileIdParam);
       if (isNaN(parsedProfileId)) {
@@ -183,14 +183,18 @@ export async function GET(request: NextRequest) {
       query = query.where(whereConditions.length === 1 ? whereConditions[0] : and(...whereConditions));
     }
 
-    // Apply sorting
+    // Optimized: Apply sorting using indexed fields (createdAt, viewsCount)
     const sortColumn = sortField === 'createdAt' ? videos.createdAt : videos.viewsCount;
     query = query.orderBy(sortOrder === 'desc' ? desc(sortColumn) : asc(sortColumn));
 
     // Apply pagination
     const results = await query.limit(limit).offset(offset);
 
-    return NextResponse.json(results, { status: 200 });
+    // Add caching headers
+    const response = NextResponse.json(results, { status: 200 });
+    response.headers.set('Cache-Control', 'public, max-age=60, stale-while-revalidate=60');
+    
+    return response;
 
   } catch (error) {
     console.error('GET error:', error);

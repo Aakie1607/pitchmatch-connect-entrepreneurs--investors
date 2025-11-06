@@ -23,8 +23,8 @@ export async function GET(
 
     const profileIdInt = parseInt(profileId);
 
-    // Check if profile exists
-    const profile = await db.select()
+    // Optimized: Check profile existence with indexed lookup
+    const profile = await db.select({ id: profiles.id })
       .from(profiles)
       .where(eq(profiles.id, profileIdInt))
       .limit(1);
@@ -50,12 +50,12 @@ export async function GET(
     const validSortFields = ['id', 'title', 'duration', 'viewsCount', 'createdAt', 'updatedAt'];
     const sortField = validSortFields.includes(sort) ? sort : 'createdAt';
 
-    // Build query
+    // Optimized: Use indexed profileId and createdAt/viewsCount for fast retrieval
     let query = db.select()
       .from(videos)
       .where(eq(videos.profileId, profileIdInt));
 
-    // Apply sorting
+    // Apply sorting with indexed fields
     if (order.toLowerCase() === 'asc') {
       query = query.orderBy(asc(videos[sortField as keyof typeof videos]));
     } else {
@@ -65,7 +65,11 @@ export async function GET(
     // Apply pagination
     const results = await query.limit(limit).offset(offset);
 
-    return NextResponse.json(results, { status: 200 });
+    // Add caching headers
+    const response = NextResponse.json(results, { status: 200 });
+    response.headers.set('Cache-Control', 'public, max-age=120, stale-while-revalidate=60');
+    
+    return response;
 
   } catch (error) {
     console.error('GET videos error:', error);
