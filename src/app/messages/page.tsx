@@ -53,11 +53,24 @@ export default function MessagesPage() {
 
       try {
         const token = localStorage.getItem("bearer_token");
+        
+        if (!token) {
+          toast.error("Authentication required. Please sign in again.");
+          router.push("/login");
+          return;
+        }
+
         const response = await fetch("/api/profiles/me", {
           headers: {
             Authorization: `Bearer ${token}`,
           },
         });
+
+        if (response.status === 401) {
+          toast.error("Your session has expired. Please sign in again.");
+          router.push("/login");
+          return;
+        }
 
         if (response.ok) {
           const data = await response.json();
@@ -69,7 +82,7 @@ export default function MessagesPage() {
     };
 
     fetchProfile();
-  }, [session]);
+  }, [session, router]);
 
   useEffect(() => {
     const fetchConnections = async () => {
@@ -77,16 +90,31 @@ export default function MessagesPage() {
 
       try {
         const token = localStorage.getItem("bearer_token");
+        
+        if (!token) {
+          toast.error("Authentication required. Please sign in again.");
+          router.push("/login");
+          return;
+        }
+
         const response = await fetch("/api/connections?status=accepted", {
           headers: {
             Authorization: `Bearer ${token}`,
           },
         });
 
+        if (response.status === 401) {
+          toast.error("Your session has expired. Please sign in again.");
+          router.push("/login");
+          return;
+        }
+
         if (response.ok) {
           const data = await response.json();
           setConnections(data);
           setFilteredConnections(data);
+        } else {
+          toast.error("Failed to load connections");
         }
       } catch (error) {
         toast.error("Failed to load connections");
@@ -96,7 +124,7 @@ export default function MessagesPage() {
     };
 
     fetchConnections();
-  }, [currentProfile]);
+  }, [currentProfile, router]);
 
   useEffect(() => {
     const fetchMessages = async () => {
@@ -150,7 +178,7 @@ export default function MessagesPage() {
     if (searchQuery.trim()) {
       const filtered = connections.filter((conn) => {
         const otherProfile = getOtherProfile(conn);
-        const name = otherProfile?.userId?.toLowerCase() || "";
+        const name = otherProfile?.userName?.toLowerCase() || "";
         return name.includes(searchQuery.toLowerCase());
       });
       setFilteredConnections(filtered);
@@ -323,7 +351,7 @@ export default function MessagesPage() {
                           <div className="flex items-center gap-3">
                             <div className="relative flex-shrink-0">
                               <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-primary/20 to-primary/10 text-primary font-bold text-lg">
-                                {otherProfile.userId?.charAt(0) || "U"}
+                                {otherProfile.userName?.charAt(0) || "U"}
                               </div>
                               <motion.div
                                 initial={{ scale: 0 }}
@@ -333,7 +361,7 @@ export default function MessagesPage() {
                             </div>
                             <div className="flex-1 min-w-0">
                               <p className="font-medium text-foreground truncate">
-                                {otherProfile.userId}
+                                {otherProfile.userName || "Unknown User"}
                               </p>
                               <p className="text-xs text-muted-foreground capitalize">
                                 {otherProfile.role}
@@ -388,11 +416,11 @@ export default function MessagesPage() {
                 >
                   <div className="flex items-center gap-4">
                     <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-primary/20 to-primary/10 text-primary font-bold text-lg">
-                      {getOtherProfile(selectedConnection)?.userId?.charAt(0) || "U"}
+                      {getOtherProfile(selectedConnection)?.userName?.charAt(0) || "U"}
                     </div>
                     <div>
                       <p className="font-semibold text-foreground">
-                        {getOtherProfile(selectedConnection)?.userId}
+                        {getOtherProfile(selectedConnection)?.userName || "Unknown User"}
                       </p>
                       <p className="text-xs text-muted-foreground capitalize flex items-center gap-1.5">
                         <motion.span
@@ -437,7 +465,7 @@ export default function MessagesPage() {
                                 animate={{ scale: 1 }}
                                 className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-primary/20 to-primary/10 text-primary font-bold text-sm"
                               >
-                                {getOtherProfile(selectedConnection)?.userId?.charAt(0) || "U"}
+                                {getOtherProfile(selectedConnection)?.userName?.charAt(0) || "U"}
                               </motion.div>
                             )}
                           </div>
@@ -489,7 +517,7 @@ export default function MessagesPage() {
                         className="flex gap-3"
                       >
                         <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-primary/20 to-primary/10 text-primary font-bold text-sm">
-                          {getOtherProfile(selectedConnection)?.userId?.charAt(0) || "U"}
+                          {getOtherProfile(selectedConnection)?.userName?.charAt(0) || "U"}
                         </div>
                         <div className="bg-card border border-border rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm">
                           <div className="flex gap-1">

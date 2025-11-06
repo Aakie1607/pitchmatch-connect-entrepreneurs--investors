@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
-import { connections, profiles, notifications } from '@/db/schema';
+import { connections, profiles, notifications, user } from '@/db/schema';
 import { eq, or, and } from 'drizzle-orm';
 import { auth } from '@/lib/auth';
 
@@ -196,9 +196,20 @@ export async function GET(request: NextRequest) {
       profileIds.add(conn.recipientId);
     });
 
-    // Fetch all related profiles
-    const relatedProfiles = await db.select()
+    // Fetch all related profiles with user names
+    const relatedProfiles = await db.select({
+      id: profiles.id,
+      userId: profiles.userId,
+      role: profiles.role,
+      profilePicture: profiles.profilePicture,
+      bio: profiles.bio,
+      createdAt: profiles.createdAt,
+      updatedAt: profiles.updatedAt,
+      userName: user.name,
+      userEmail: user.email,
+    })
       .from(profiles)
+      .leftJoin(user, eq(profiles.userId, user.id))
       .where(
         or(
           ...Array.from(profileIds).map(id => eq(profiles.id, id))
