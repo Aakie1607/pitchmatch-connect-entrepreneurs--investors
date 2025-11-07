@@ -9,7 +9,7 @@ import { toast } from "sonner";
 import { StatCard } from "@/components/AnimatedCard";
 import { DashboardStatSkeleton, VideoCardSkeleton } from "@/components/SkeletonLoaders";
 import { EmptyState } from "@/components/EmptyState";
-import { Users, Video, Bell, TrendingUp, Play, Eye, Check, X, UserPlus } from "lucide-react";
+import { Users, Video, Bell, TrendingUp, Play, Eye, Check, X, UserPlus, User } from "lucide-react";
 import { formatNumber, formatDate } from "@/lib/utils";
 import { motion } from "framer-motion";
 
@@ -215,9 +215,9 @@ export default function DashboardPage() {
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-            className="mb-8 rounded-2xl border border-border/40 bg-card p-6"
+            className="mb-8 rounded-2xl border border-border/40 bg-card p-6 shadow-sm"
           >
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-full bg-foreground/5">
                   <UserPlus className="h-5 w-5 text-foreground" strokeWidth={1.5} />
@@ -233,34 +233,54 @@ export default function DashboardPage() {
               </div>
             </div>
             
-            <div className="mt-6 space-y-3">
+            <div className="space-y-3">
               {pendingRequests.map((request, i) => {
                 const requester = request.requesterProfile;
+                const requesterName = requester?.userName || "Unknown User";
+                const requesterRole = requester?.role || "user";
+                const requesterPhoto = requester?.profilePicture;
+                
                 return (
                   <motion.div
                     key={request.id}
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.4, delay: i * 0.05 }}
-                    className="flex items-center justify-between rounded-xl border border-border/40 bg-background p-4"
+                    className="flex items-center justify-between rounded-xl border border-border/40 bg-background p-4 hover:bg-muted/10 transition-all"
                   >
                     <div className="flex items-center gap-3 flex-1">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-foreground/5 to-foreground/10 text-foreground font-light text-lg">
-                        {requester?.userId?.charAt(0) || "U"}
-                      </div>
+                      {requesterPhoto ? (
+                        <motion.img
+                          initial={{ scale: 0.8, opacity: 0 }}
+                          animate={{ scale: 1, opacity: 1 }}
+                          transition={{ duration: 0.3 }}
+                          src={requesterPhoto}
+                          alt={requesterName}
+                          className="h-12 w-12 rounded-full object-cover border-2 border-border/40"
+                        />
+                      ) : (
+                        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-foreground/10 to-foreground/5 text-foreground font-light text-lg border-2 border-border/40">
+                          {requesterName.charAt(0) || <User className="h-5 w-5" strokeWidth={1.5} />}
+                        </div>
+                      )}
                       <div className="flex-1">
                         <h4 className="text-sm font-light text-foreground tracking-wide">
-                          {requester?.userId || "Unknown User"}
+                          {requesterName}
                         </h4>
-                        <p className="text-xs font-light text-muted-foreground capitalize tracking-wide">
-                          {requester?.role || "User"} • {formatDate(request.createdAt)}
+                        <p className="text-xs font-light text-muted-foreground capitalize tracking-wide flex items-center gap-1.5">
+                          <span className="inline-flex items-center gap-1">
+                            <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/50"></span>
+                            {requesterRole}
+                          </span>
+                          <span className="text-muted-foreground/50">•</span>
+                          <span>{formatDate(request.createdAt)}</span>
                         </p>
                       </div>
                     </div>
                     
                     <div className="flex items-center gap-2 ml-4">
                       <motion.button
-                        whileHover={{ y: -1 }}
+                        whileHover={{ y: -1, scale: 1.02 }}
                         whileTap={{ scale: 0.95 }}
                         onClick={() => handleConnectionRequest(request.id, "accepted")}
                         disabled={processingRequest === request.id}
@@ -270,7 +290,7 @@ export default function DashboardPage() {
                         Accept
                       </motion.button>
                       <motion.button
-                        whileHover={{ y: -1 }}
+                        whileHover={{ y: -1, scale: 1.02 }}
                         whileTap={{ scale: 0.95 }}
                         onClick={() => handleConnectionRequest(request.id, "rejected")}
                         disabled={processingRequest === request.id}
