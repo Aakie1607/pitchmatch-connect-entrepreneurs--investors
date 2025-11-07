@@ -6,7 +6,7 @@ import { useSession } from "@/lib/auth-client";
 import Navigation from "@/components/Navigation";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, MapPin, Building2, TrendingUp, Heart, MessageCircle, Eye, ChevronDown, User } from "lucide-react";
+import { Search, MapPin, Building2, TrendingUp, Heart, MessageCircle, Eye, ChevronDown } from "lucide-react";
 
 interface Profile {
   id: number;
@@ -38,8 +38,6 @@ export default function BrowsePage() {
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [currentProfile, setCurrentProfile] = useState<any>(null);
   const [showFilters, setShowFilters] = useState(false);
-  const [expandedBios, setExpandedBios] = useState<Set<number>>(new Set());
-  const [expandedDescriptions, setExpandedDescriptions] = useState<Set<number>>(new Set());
   const [filters, setFilters] = useState({
     search: "",
     industry: "",
@@ -157,30 +155,6 @@ export default function BrowsePage() {
       observerRef.current?.disconnect();
     };
   }, [profiles]);
-
-  const toggleBio = (profileId: number) => {
-    setExpandedBios(prev => {
-      const next = new Set(prev);
-      if (next.has(profileId)) {
-        next.delete(profileId);
-      } else {
-        next.add(profileId);
-      }
-      return next;
-    });
-  };
-
-  const toggleDescription = (videoId: number) => {
-    setExpandedDescriptions(prev => {
-      const next = new Set(prev);
-      if (next.has(videoId)) {
-        next.delete(videoId);
-      } else {
-        next.add(videoId);
-      }
-      return next;
-    });
-  };
 
   const handleConnect = async (profileId: number) => {
     try {
@@ -387,9 +361,6 @@ export default function BrowsePage() {
           {profiles.length > 0 ? (
             profiles.map((profile, index) => {
               const roleData = profile.entrepreneurProfile || profile.investorProfile;
-              const isBioExpanded = expandedBios.has(profile.id);
-              const bioText = profile.bio || roleData?.businessDescription || roleData?.investmentPreferences || "";
-              const shouldShowReadMore = bioText.length > 150;
               
               return (
                 <motion.div
@@ -403,23 +374,12 @@ export default function BrowsePage() {
                   <div className="p-8 pb-6">
                     <div className="flex items-start justify-between">
                       <div className="flex items-center gap-4">
-                        {profile.profilePicture ? (
-                          <motion.img
-                            initial={{ scale: 0.9, opacity: 0 }}
-                            animate={{ scale: 1, opacity: 1 }}
-                            transition={{ duration: 0.4 }}
-                            src={profile.profilePicture}
-                            alt={profile.name || "Profile"}
-                            className="h-16 w-16 rounded-full object-cover border-2 border-border/40"
-                          />
-                        ) : (
-                          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-foreground/10 to-foreground/5 text-foreground font-light text-2xl border-2 border-border/40">
-                            {profile.name?.charAt(0) || <User className="h-7 w-7" strokeWidth={1.5} />}
-                          </div>
-                        )}
+                        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-foreground/5 to-foreground/10 text-foreground font-light text-2xl">
+                          {profile.name?.charAt(0) || "U"}
+                        </div>
                         <div>
                           <h3 className="text-xl font-light text-foreground tracking-wide">
-                            {profile.name || "Anonymous User"}
+                            {profile.name}
                           </h3>
                           <p className="text-xs font-light text-muted-foreground capitalize tracking-wide mt-1">
                             {profile.role}
@@ -441,12 +401,6 @@ export default function BrowsePage() {
                           {roleData.industry}
                         </span>
                       )}
-                      {roleData?.industryFocus && (
-                        <span className="inline-flex items-center gap-1.5 rounded-full border border-border/40 bg-background px-3 py-1.5 text-xs font-light text-foreground tracking-wide">
-                          <Building2 className="h-3 w-3" strokeWidth={1.5} />
-                          {roleData.industryFocus}
-                        </span>
-                      )}
                       {roleData?.fundingStage && (
                         <span className="inline-flex items-center gap-1.5 rounded-full border border-border/40 bg-background px-3 py-1.5 text-xs font-light text-foreground tracking-wide">
                           <TrendingUp className="h-3 w-3" strokeWidth={1.5} />
@@ -461,23 +415,10 @@ export default function BrowsePage() {
                       )}
                     </div>
 
-                    {bioText && (
-                      <div className="mt-5">
-                        <p className={`text-sm font-light text-muted-foreground leading-relaxed tracking-wide ${!isBioExpanded && shouldShowReadMore ? 'line-clamp-2' : ''}`}>
-                          {bioText}
-                        </p>
-                        {shouldShowReadMore && (
-                          <motion.button
-                            whileHover={{ x: 2 }}
-                            whileTap={{ scale: 0.98 }}
-                            onClick={() => toggleBio(profile.id)}
-                            className="mt-2 text-xs font-light text-foreground hover:text-foreground/80 transition-colors tracking-wide inline-flex items-center gap-1"
-                          >
-                            {isBioExpanded ? 'Show less' : 'Read more'}
-                            <ChevronDown className={`h-3 w-3 transition-transform ${isBioExpanded ? 'rotate-180' : ''}`} strokeWidth={1.5} />
-                          </motion.button>
-                        )}
-                      </div>
+                    {profile.bio && (
+                      <p className="mt-5 text-sm font-light text-muted-foreground line-clamp-2 leading-relaxed tracking-wide">
+                        {profile.bio}
+                      </p>
                     )}
                   </div>
 
@@ -488,42 +429,27 @@ export default function BrowsePage() {
                         ref={(el) => { videoRefs.current[profile.videos![0].id] = el; }}
                         src={profile.videos[0].videoUrl}
                         loop
+                        muted
                         playsInline
-                        controls
                         onPlay={() => handleVideoView(profile.videos![0].id)}
                         className="w-full aspect-video object-cover bg-black"
                       />
-                      <div className="p-6 bg-gradient-to-t from-black/80 to-transparent absolute bottom-0 left-0 right-0">
-                        <div className="flex items-end justify-between">
-                          <div className="flex-1 mr-4">
-                            <h4 className="text-white font-light text-lg drop-shadow-lg tracking-wide">
-                              {profile.videos[0].title}
-                            </h4>
-                            {profile.videos[0].description && (
-                              <div className="mt-2">
-                                <p className={`text-white/90 text-xs font-light drop-shadow-lg leading-relaxed tracking-wide ${!expandedDescriptions.has(profile.videos[0].id) ? 'line-clamp-2' : ''}`}>
-                                  {profile.videos[0].description}
-                                </p>
-                                {profile.videos[0].description.length > 100 && (
-                                  <motion.button
-                                    whileHover={{ x: 2 }}
-                                    whileTap={{ scale: 0.98 }}
-                                    onClick={() => toggleDescription(profile.videos[0].id)}
-                                    className="mt-1 text-xs font-light text-white/90 hover:text-white transition-colors tracking-wide inline-flex items-center gap-1 pointer-events-auto"
-                                  >
-                                    {expandedDescriptions.has(profile.videos[0].id) ? 'Show less' : 'Read more'}
-                                    <ChevronDown className={`h-3 w-3 transition-transform ${expandedDescriptions.has(profile.videos[0].id) ? 'rotate-180' : ''}`} strokeWidth={1.5} />
-                                  </motion.button>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-2 text-white drop-shadow-lg flex-shrink-0">
-                            <Eye className="h-3.5 w-3.5" strokeWidth={1.5} />
-                            <span className="text-xs font-light tracking-wide">
-                              {profile.videos[0].viewsCount}
-                            </span>
-                          </div>
+                      <div className="absolute bottom-6 left-6 right-6 flex items-end justify-between">
+                        <div className="flex-1">
+                          <h4 className="text-white font-light text-lg drop-shadow-lg tracking-wide">
+                            {profile.videos[0].title}
+                          </h4>
+                          {profile.videos[0].description && (
+                            <p className="text-white/90 text-xs font-light drop-shadow-lg line-clamp-1 mt-1 tracking-wide">
+                              {profile.videos[0].description}
+                            </p>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 text-white drop-shadow-lg">
+                          <Eye className="h-3.5 w-3.5" strokeWidth={1.5} />
+                          <span className="text-xs font-light tracking-wide">
+                            {profile.videos[0].viewsCount}
+                          </span>
                         </div>
                       </div>
                     </div>

@@ -15,58 +15,31 @@ export default function Navigation() {
   const { data: session, isPending, refetch } = useSession();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isSignOutModalOpen, setIsSignOutModalOpen] = useState(false);
-  const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
-    const fetchUnreadMessages = async () => {
+    const fetchUnreadNotifications = async () => {
       if (!session?.user) return;
 
       try {
         const token = localStorage.getItem("bearer_token");
-        
-        // Get current user's profile
-        const profileResponse = await fetch("/api/profiles/me", {
-          headers: { Authorization: `Bearer ${token}` },
+        const response = await fetch("/api/notifications?isRead=false", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
         });
-        
-        if (!profileResponse.ok) return;
-        
-        const profile = await profileResponse.json();
-        
-        // Get all accepted connections
-        const connectionsResponse = await fetch("/api/connections?status=accepted", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        
-        if (!connectionsResponse.ok) return;
-        
-        const connections = await connectionsResponse.json();
-        
-        // Count unread messages across all connections
-        let totalUnread = 0;
-        
-        for (const connection of connections) {
-          const messagesResponse = await fetch(`/api/messages/connection/${connection.id}`, {
-            headers: { Authorization: `Bearer ${token}` },
-          });
-          
-          if (messagesResponse.ok) {
-            const messages = await messagesResponse.json();
-            const unreadInConnection = messages.filter(
-              (msg: any) => !msg.isRead && msg.senderId !== profile.id
-            ).length;
-            totalUnread += unreadInConnection;
-          }
+
+        if (response.ok) {
+          const data = await response.json();
+          setUnreadCount(data.length);
         }
-        
-        setUnreadMessagesCount(totalUnread);
       } catch (error) {
-        console.error("Failed to fetch unread messages");
+        console.error("Failed to fetch notifications");
       }
     };
 
-    fetchUnreadMessages();
-    const interval = setInterval(fetchUnreadMessages, 30000);
+    fetchUnreadNotifications();
+    const interval = setInterval(fetchUnreadNotifications, 30000);
 
     return () => clearInterval(interval);
   }, [session]);
@@ -95,7 +68,7 @@ export default function Navigation() {
   const navItems = [
     { href: "/dashboard", label: "Dashboard", icon: Home },
     { href: "/browse", label: "Browse", icon: Search },
-    { href: "/messages", label: "Messages", icon: MessageCircle, badge: unreadMessagesCount },
+    { href: "/messages", label: "Messages", icon: MessageCircle, badge: unreadCount },
     { href: "/favorites", label: "Favorites", icon: Heart },
     { href: "/analytics", label: "Analytics", icon: BarChart3 },
     { href: "/profile", label: "Profile", icon: User },

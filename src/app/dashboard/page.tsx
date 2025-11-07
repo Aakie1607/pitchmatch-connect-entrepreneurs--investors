@@ -9,7 +9,7 @@ import { toast } from "sonner";
 import { StatCard } from "@/components/AnimatedCard";
 import { DashboardStatSkeleton, VideoCardSkeleton } from "@/components/SkeletonLoaders";
 import { EmptyState } from "@/components/EmptyState";
-import { Users, Video, Bell, TrendingUp, Play, Eye, Check, X, UserPlus, User, ArrowRight, Sparkles } from "lucide-react";
+import { Users, Video, Bell, TrendingUp, Play, Eye, Check, X, UserPlus } from "lucide-react";
 import { formatNumber, formatDate } from "@/lib/utils";
 import { motion } from "framer-motion";
 
@@ -99,11 +99,13 @@ export default function DashboardPage() {
           setConnections(connectionsData);
         }
 
+        // Fetch pending connection requests where user is recipient
         const pendingResponse = await fetch("/api/connections?status=pending", {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (pendingResponse.ok) {
           const pendingData = await pendingResponse.json();
+          // Filter only requests where current user is the recipient
           const incomingRequests = pendingData.filter(
             (conn: Connection) => conn.recipientId === profileData.id
           );
@@ -142,8 +144,10 @@ export default function DashboardPage() {
 
       if (response.ok) {
         toast.success(action === "accepted" ? "Connection accepted!" : "Connection rejected");
+        // Remove from pending list
         setPendingRequests(prev => prev.filter(req => req.id !== connectionId));
         
+        // If accepted, add to connections count
         if (action === "accepted") {
           const updatedConnection = await response.json();
           setConnections(prev => [...prev, updatedConnection]);
@@ -164,9 +168,9 @@ export default function DashboardPage() {
       <div className="min-h-screen bg-background">
         <Navigation />
         <div className="mx-auto max-w-7xl px-6 py-12 sm:px-8 lg:px-12">
-          <div className="mb-12 animate-slide-down space-y-3">
-            <div className="h-10 w-80 bg-muted/30 rounded-xl animate-pulse" />
-            <div className="h-5 w-96 bg-muted/30 rounded-lg animate-pulse" />
+          <div className="mb-12 animate-slide-down">
+            <div className="h-8 w-64 bg-muted/30 rounded animate-pulse mb-3" />
+            <div className="h-4 w-96 bg-muted/30 rounded animate-pulse" />
           </div>
           <div className="mb-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
             {[1, 2, 3, 4].map((i) => (
@@ -189,133 +193,90 @@ export default function DashboardPage() {
     <div className="min-h-screen bg-background">
       <Navigation />
 
-      <div className="mx-auto max-w-7xl px-6 py-12 sm:px-8 lg:px-12 space-y-10 sm:space-y-12">
-        {/* Enhanced Welcome Section */}
+      <div className="mx-auto max-w-7xl px-6 py-12 sm:px-8 lg:px-12">
+        {/* Welcome Section */}
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-          className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
+          className="mb-12"
         >
-          <div>
-            <h1 className="text-3xl sm:text-4xl font-light text-foreground tracking-wide mb-2">
-              Welcome back, {session.user.name}
-            </h1>
-            <p className="text-sm sm:text-base font-light text-muted-foreground tracking-wide flex items-center gap-2">
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-muted/50 px-3 py-1 text-xs">
-                <Sparkles className="h-3 w-3" strokeWidth={1.5} />
-                {profile.role === "entrepreneur" ? "Entrepreneur Dashboard" : "Investor Overview"}
-              </span>
-            </p>
-          </div>
-          
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.5, delay: 0.2 }}
-          >
-            <Link href="/analytics">
-              <motion.button
-                whileHover={{ scale: 1.03, y: -2 }}
-                whileTap={{ scale: 0.97 }}
-                className="inline-flex items-center gap-2 rounded-xl bg-foreground px-5 py-3 text-sm font-light text-background shadow-lg hover:shadow-xl transition-all tracking-wide"
-              >
-                View Analytics
-                <TrendingUp className="h-4 w-4" strokeWidth={1.5} />
-              </motion.button>
-            </Link>
-          </motion.div>
+          <h1 className="text-3xl font-light text-foreground tracking-wide">
+            Welcome back, {session.user.name}
+          </h1>
+          <p className="mt-2 text-sm font-light text-muted-foreground tracking-wide">
+            {profile.role === "entrepreneur" ? "Your startup dashboard" : "Your investment overview"}
+          </p>
         </motion.div>
 
-        {/* Enhanced Connection Requests Alert */}
+        {/* Connection Requests Alert */}
         {pendingRequests.length > 0 && (
           <motion.div
-            initial={{ opacity: 0, y: -20 }}
+            initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-            className="rounded-2xl sm:rounded-3xl border border-border/40 bg-gradient-to-br from-card to-card/50 p-8 shadow-lg"
+            className="mb-8 rounded-2xl border border-border/40 bg-card p-6"
           >
-            <div className="flex items-center justify-between mb-8">
-              <div className="flex items-center gap-4">
-                <div className="flex h-12 w-12 sm:h-14 sm:w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-foreground/10 to-foreground/5">
-                  <UserPlus className="h-6 w-6 sm:h-7 sm:w-7 text-foreground" strokeWidth={1.5} />
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-foreground/5">
+                  <UserPlus className="h-5 w-5 text-foreground" strokeWidth={1.5} />
                 </div>
                 <div>
-                  <h3 className="text-lg sm:text-xl font-light text-foreground tracking-wide">
-                    {pendingRequests.length} Pending Connection{pendingRequests.length > 1 ? 's' : ''}
+                  <h3 className="text-base font-light text-foreground tracking-wide">
+                    {pendingRequests.length} Pending Connection Request{pendingRequests.length > 1 ? 's' : ''}
                   </h3>
-                  <p className="text-sm font-light text-muted-foreground tracking-wide mt-1">
+                  <p className="text-xs font-light text-muted-foreground tracking-wide">
                     Review and respond to connection requests
                   </p>
                 </div>
               </div>
             </div>
             
-            <div className="space-y-4">
+            <div className="mt-6 space-y-3">
               {pendingRequests.map((request, i) => {
                 const requester = request.requesterProfile;
-                const requesterName = requester?.userName || "Unknown User";
-                const requesterRole = requester?.role || "user";
-                const requesterPhoto = requester?.profilePicture;
-                
                 return (
                   <motion.div
                     key={request.id}
-                    initial={{ opacity: 0, y: 20 }}
+                    initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.5, delay: i * 0.1 }}
-                    whileHover={{ y: -2 }}
-                    className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 rounded-2xl border border-border/40 bg-background p-6 hover:shadow-lg transition-all duration-400"
+                    transition={{ duration: 0.4, delay: i * 0.05 }}
+                    className="flex items-center justify-between rounded-xl border border-border/40 bg-background p-4"
                   >
-                    <div className="flex items-center gap-4 flex-1">
-                      {requesterPhoto ? (
-                        <motion.img
-                          initial={{ scale: 0.8, opacity: 0 }}
-                          animate={{ scale: 1, opacity: 1 }}
-                          transition={{ duration: 0.4 }}
-                          src={requesterPhoto}
-                          alt={requesterName}
-                          className="h-14 w-14 sm:h-16 sm:w-16 rounded-2xl object-cover border-2 border-border/40"
-                        />
-                      ) : (
-                        <div className="flex h-14 w-14 sm:h-16 sm:w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-foreground/10 to-foreground/5 text-foreground font-light text-xl border-2 border-border/40">
-                          {requesterName.charAt(0) || <User className="h-7 w-7" strokeWidth={1.5} />}
-                        </div>
-                      )}
+                    <div className="flex items-center gap-3 flex-1">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-foreground/5 to-foreground/10 text-foreground font-light text-lg">
+                        {requester?.userId?.charAt(0) || "U"}
+                      </div>
                       <div className="flex-1">
-                        <h4 className="text-base sm:text-lg font-light text-foreground tracking-wide">
-                          {requesterName}
+                        <h4 className="text-sm font-light text-foreground tracking-wide">
+                          {requester?.userId || "Unknown User"}
                         </h4>
-                        <p className="text-sm font-light text-muted-foreground capitalize tracking-wide flex items-center gap-2 mt-1">
-                          <span className="inline-flex items-center gap-1.5 rounded-full bg-muted/50 px-2.5 py-0.5 text-xs">
-                            <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/50"></span>
-                            {requesterRole}
-                          </span>
-                          <span className="text-muted-foreground/50">•</span>
-                          <span>{formatDate(request.createdAt)}</span>
+                        <p className="text-xs font-light text-muted-foreground capitalize tracking-wide">
+                          {requester?.role || "User"} • {formatDate(request.createdAt)}
                         </p>
                       </div>
                     </div>
                     
-                    <div className="flex items-center gap-3 w-full sm:w-auto">
+                    <div className="flex items-center gap-2 ml-4">
                       <motion.button
-                        whileHover={{ y: -2, scale: 1.02 }}
+                        whileHover={{ y: -1 }}
                         whileTap={{ scale: 0.95 }}
                         onClick={() => handleConnectionRequest(request.id, "accepted")}
                         disabled={processingRequest === request.id}
-                        className="flex-1 sm:flex-none flex items-center justify-center gap-2 rounded-xl bg-foreground px-6 py-3 text-sm font-light text-background hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed tracking-wide"
+                        className="flex items-center gap-1.5 rounded-lg bg-foreground px-4 py-2 text-xs font-light text-background hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed tracking-wide"
                       >
-                        <Check className="h-4 w-4" strokeWidth={1.5} />
+                        <Check className="h-3.5 w-3.5" strokeWidth={1.5} />
                         Accept
                       </motion.button>
                       <motion.button
-                        whileHover={{ y: -2, scale: 1.02 }}
+                        whileHover={{ y: -1 }}
                         whileTap={{ scale: 0.95 }}
                         onClick={() => handleConnectionRequest(request.id, "rejected")}
                         disabled={processingRequest === request.id}
-                        className="flex-1 sm:flex-none flex items-center justify-center gap-2 rounded-xl border border-border/40 bg-background px-6 py-3 text-sm font-light text-foreground hover:bg-muted/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed tracking-wide"
+                        className="flex items-center gap-1.5 rounded-lg border border-border/40 bg-background px-4 py-2 text-xs font-light text-foreground hover:bg-muted/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed tracking-wide"
                       >
-                        <X className="h-4 w-4" strokeWidth={1.5} />
+                        <X className="h-3.5 w-3.5" strokeWidth={1.5} />
                         Reject
                       </motion.button>
                     </div>
@@ -326,10 +287,10 @@ export default function DashboardPage() {
           </motion.div>
         )}
 
-        {/* Enhanced Stats Grid */}
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+        {/* Stats Grid */}
+        <div className="mb-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
           <StatCard
-            icon={<Users className="h-5 w-5 sm:h-6 sm:w-6" strokeWidth={1.5} />}
+            icon={<Users className="h-5 w-5" strokeWidth={1.5} />}
             label="Connections"
             value={formatNumber(connections.length)}
             delay={0}
@@ -338,13 +299,13 @@ export default function DashboardPage() {
           {profile.role === "entrepreneur" && (
             <>
               <StatCard
-                icon={<Video className="h-5 w-5 sm:h-6 sm:w-6" strokeWidth={1.5} />}
+                icon={<Video className="h-5 w-5" strokeWidth={1.5} />}
                 label="Videos"
                 value={videos.length}
                 delay={100}
               />
               <StatCard
-                icon={<Eye className="h-5 w-5 sm:h-6 sm:w-6" strokeWidth={1.5} />}
+                icon={<Eye className="h-5 w-5" strokeWidth={1.5} />}
                 label="Total Views"
                 value={formatNumber(totalVideoViews)}
                 delay={200}
@@ -353,19 +314,19 @@ export default function DashboardPage() {
           )}
           
           <StatCard
-            icon={<Bell className="h-5 w-5 sm:h-6 sm:w-6" strokeWidth={1.5} />}
+            icon={<Bell className="h-5 w-5" strokeWidth={1.5} />}
             label="Notifications"
             value={unreadNotifications}
             delay={profile.role === "entrepreneur" ? 300 : 100}
           />
         </div>
 
-        {/* Enhanced Quick Actions */}
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        {/* Quick Actions */}
+        <div className="mb-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {[
             {
               href: "/browse",
-              icon: <TrendingUp className="h-7 w-7 text-foreground" strokeWidth={1.5} />,
+              icon: <TrendingUp className="h-6 w-6 text-foreground" strokeWidth={1.5} />,
               title: `Browse ${profile.role === "entrepreneur" ? "Investors" : "Startups"}`,
               description: "Discover opportunities",
               delay: 0,
@@ -373,7 +334,7 @@ export default function DashboardPage() {
             {
               href: "/messages",
               icon: (
-                <svg className="h-7 w-7 text-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <svg className="h-6 w-6 text-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                 </svg>
               ),
@@ -384,7 +345,7 @@ export default function DashboardPage() {
             {
               href: "/analytics",
               icon: (
-                <svg className="h-7 w-7 text-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <svg className="h-6 w-6 text-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                 </svg>
               ),
@@ -398,30 +359,19 @@ export default function DashboardPage() {
               href={action.href}
             >
               <motion.div
-                initial={{ opacity: 0, y: 30 }}
+                initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6, delay: action.delay / 1000, ease: [0.22, 1, 0.36, 1] }}
-                whileHover={{ y: -4, scale: 1.02, transition: { duration: 0.3 } }}
-                className="group rounded-2xl sm:rounded-3xl border border-border/40 bg-card p-8 sm:p-10 transition-all hover:shadow-xl hover:border-border/60 h-full"
+                whileHover={{ y: -2, transition: { duration: 0.2 } }}
+                className="group rounded-2xl border border-border/40 bg-card p-8 transition-all hover:shadow-lg hover:border-border/60"
               >
-                <div className="flex flex-col h-full">
-                  <div className="flex items-start justify-between mb-6">
-                    <div className="flex h-14 w-14 sm:h-16 sm:w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-foreground/10 to-foreground/5 group-hover:from-foreground group-hover:to-foreground/90 group-hover:text-background transition-all duration-500">
-                      {action.icon}
-                    </div>
-                    <motion.div
-                      initial={{ opacity: 0, x: -10 }}
-                      whileHover={{ opacity: 1, x: 0 }}
-                      transition={{ duration: 0.3 }}
-                    >
-                      <ArrowRight className="h-5 w-5 text-muted-foreground group-hover:text-foreground transition-colors" strokeWidth={1.5} />
-                    </motion.div>
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="text-lg sm:text-xl font-light text-foreground group-hover:text-foreground/90 transition-colors tracking-wide mb-2">
+                <div className="flex items-start gap-4">
+                  {action.icon}
+                  <div>
+                    <h3 className="text-base font-light text-foreground group-hover:text-foreground/80 transition-colors tracking-wide">
                       {action.title}
                     </h3>
-                    <p className="text-sm font-light text-muted-foreground tracking-wide">{action.description}</p>
+                    <p className="text-xs font-light text-muted-foreground mt-1 tracking-wide">{action.description}</p>
                   </div>
                 </div>
               </motion.div>
@@ -429,44 +379,42 @@ export default function DashboardPage() {
           ))}
         </div>
 
-        {/* Enhanced Recent Activity */}
+        {/* Recent Activity */}
         <div className="grid gap-6 lg:grid-cols-2">
           {/* Videos Section (Entrepreneurs only) */}
           {profile.role === "entrepreneur" && (
             <motion.div 
-              initial={{ opacity: 0, y: 30 }}
+              initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.3, ease: [0.22, 1, 0.36, 1] }}
-              className="rounded-2xl sm:rounded-3xl border border-border/40 bg-card p-8 sm:p-10 shadow-sm"
+              className="rounded-2xl border border-border/40 bg-card p-8"
             >
-              <div className="mb-8 flex items-center justify-between">
-                <h2 className="text-xl sm:text-2xl font-light text-foreground tracking-wide">Your Videos</h2>
+              <div className="mb-6 flex items-center justify-between">
+                <h2 className="text-lg font-light text-foreground tracking-wide">Your Videos</h2>
                 <Link
                   href="/profile"
-                  className="text-sm font-light text-muted-foreground hover:text-foreground transition-colors tracking-wide flex items-center gap-1.5"
+                  className="text-xs font-light text-muted-foreground hover:text-foreground transition-colors tracking-wide"
                 >
-                  Upload Video
-                  <ArrowRight className="h-4 w-4" strokeWidth={1.5} />
+                  Upload Video →
                 </Link>
               </div>
               {videos.length > 0 ? (
-                <div className="space-y-4">
+                <div className="space-y-3">
                   {videos.slice(0, 3).map((video, i) => (
                     <motion.div
                       key={video.id}
-                      initial={{ opacity: 0, y: 20 }}
+                      initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.5, delay: i * 0.1 }}
-                      whileHover={{ y: -2 }}
-                      className="flex items-center justify-between rounded-2xl border border-border/40 p-5 transition-all hover:bg-muted/20 hover:border-border/60 hover:shadow-md"
+                      transition={{ duration: 0.4, delay: i * 0.05 }}
+                      className="flex items-center justify-between rounded-xl border border-border/40 p-4 transition-all hover:bg-muted/20 hover:border-border/60"
                     >
-                      <div className="flex items-center flex-1 gap-4">
-                        <div className="flex h-12 w-12 sm:h-14 sm:w-14 items-center justify-center rounded-xl bg-gradient-to-br from-foreground/10 to-foreground/5">
-                          <Play className="h-5 w-5 sm:h-6 sm:w-6 text-foreground" strokeWidth={1.5} />
+                      <div className="flex items-center flex-1">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-foreground/5">
+                          <Play className="h-4 w-4 text-foreground" strokeWidth={1.5} />
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <h3 className="font-light text-sm sm:text-base text-foreground tracking-wide truncate">{video.title}</h3>
-                          <p className="text-xs sm:text-sm font-light text-muted-foreground tracking-wide mt-1">
+                        <div className="ml-4 flex-1">
+                          <h3 className="font-light text-sm text-foreground tracking-wide">{video.title}</h3>
+                          <p className="text-xs font-light text-muted-foreground tracking-wide mt-0.5">
                             {formatNumber(video.viewsCount)} views • {formatDate(video.createdAt)}
                           </p>
                         </div>
@@ -490,40 +438,38 @@ export default function DashboardPage() {
 
           {/* Recent Notifications */}
           <motion.div 
-            initial={{ opacity: 0, y: 30 }}
+            initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.4, ease: [0.22, 1, 0.36, 1] }}
-            className="rounded-2xl sm:rounded-3xl border border-border/40 bg-card p-8 sm:p-10 shadow-sm"
+            className="rounded-2xl border border-border/40 bg-card p-8"
           >
-            <div className="mb-8 flex items-center justify-between">
-              <h2 className="text-xl sm:text-2xl font-light text-foreground tracking-wide">Recent Notifications</h2>
+            <div className="mb-6 flex items-center justify-between">
+              <h2 className="text-lg font-light text-foreground tracking-wide">Recent Notifications</h2>
               <Link
                 href="/messages"
-                className="text-sm font-light text-muted-foreground hover:text-foreground transition-colors tracking-wide flex items-center gap-1.5"
+                className="text-xs font-light text-muted-foreground hover:text-foreground transition-colors tracking-wide"
               >
-                View All
-                <ArrowRight className="h-4 w-4" strokeWidth={1.5} />
+                View All →
               </Link>
             </div>
             {notifications.length > 0 ? (
-              <div className="space-y-4">
+              <div className="space-y-3">
                 {notifications.slice(0, 5).map((notification, i) => (
                   <motion.div
                     key={notification.id}
-                    initial={{ opacity: 0, y: 20 }}
+                    initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.5, delay: i * 0.1 }}
-                    whileHover={{ y: -2 }}
-                    className="flex items-start justify-between gap-4 rounded-2xl border border-border/40 p-5 transition-all hover:bg-muted/20 hover:border-border/60"
+                    transition={{ duration: 0.4, delay: i * 0.05 }}
+                    className="flex items-start justify-between rounded-xl border border-border/40 p-4 transition-all hover:bg-muted/20"
                   >
                     <div className="flex-1">
-                      <p className="text-sm font-light text-foreground tracking-wide leading-relaxed">{notification.content}</p>
-                      <p className="text-xs sm:text-sm font-light text-muted-foreground mt-2 tracking-wide">
+                      <p className="text-xs font-light text-foreground tracking-wide">{notification.content}</p>
+                      <p className="text-xs font-light text-muted-foreground mt-1 tracking-wide">
                         {formatDate(notification.createdAt)}
                       </p>
                     </div>
                     {!notification.isRead && (
-                      <div className="ml-3 h-2 w-2 rounded-full bg-foreground flex-shrink-0 mt-2" />
+                      <div className="ml-3 h-1.5 w-1.5 rounded-full bg-foreground flex-shrink-0 mt-1.5" />
                     )}
                   </motion.div>
                 ))}
