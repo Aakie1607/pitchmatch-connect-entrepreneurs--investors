@@ -6,7 +6,7 @@ import { useSession } from "@/lib/auth-client";
 import Navigation from "@/components/Navigation";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
-import { Heart, Trash2, MessageCircle, Building2, MapPin, TrendingUp, Search } from "lucide-react";
+import { Heart, Trash2, MessageCircle, Building2, MapPin, TrendingUp, Search, User, Sparkles } from "lucide-react";
 
 interface Favorite {
   id: number;
@@ -121,12 +121,15 @@ export default function FavoritesPage() {
     return (
       <div className="min-h-screen bg-background">
         <Navigation />
-        <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-          <div className="animate-pulse space-y-6">
-            <div className="h-12 bg-muted rounded-xl w-1/3" />
+        <div className="mx-auto max-w-7xl px-6 py-12 sm:px-8 lg:px-12">
+          <div className="animate-pulse space-y-8">
+            <div className="space-y-3">
+              <div className="h-10 bg-muted/30 rounded-xl w-64" />
+              <div className="h-5 bg-muted/30 rounded-lg w-96" />
+            </div>
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
               {[1, 2, 3].map((i) => (
-                <div key={i} className="h-64 bg-muted rounded-2xl" />
+                <div key={i} className="h-80 bg-muted/30 rounded-2xl" />
               ))}
             </div>
           </div>
@@ -139,44 +142,51 @@ export default function FavoritesPage() {
     <div className="min-h-screen bg-background">
       <Navigation />
 
-      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-        {/* Header */}
+      <div className="mx-auto max-w-7xl px-6 py-12 sm:px-8 lg:px-12 space-y-10">
+        {/* Enhanced Header */}
         <motion.div
-          initial={{ opacity: 0, y: -20 }}
+          initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="mb-8"
+          transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
         >
-          <div className="flex items-center gap-3 mb-2">
-            <Heart className="h-8 w-8 text-primary fill-primary" />
-            <h1 className="text-3xl font-bold text-foreground">Favorites</h1>
+          <div className="flex items-center gap-4 mb-4">
+            <div className="flex h-12 w-12 sm:h-14 sm:w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-foreground/10 to-foreground/5">
+              <Heart className="h-6 w-6 sm:h-7 sm:w-7 text-foreground" strokeWidth={1.5} />
+            </div>
+            <div>
+              <h1 className="text-3xl sm:text-4xl font-light text-foreground tracking-wide">Favorites</h1>
+              <p className="text-sm font-light text-muted-foreground mt-2 tracking-wide flex items-center gap-2">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-muted/50 px-3 py-1 text-xs">
+                  <Sparkles className="h-3 w-3" strokeWidth={1.5} />
+                  {favorites.length} {favorites.length === 1 ? 'Profile' : 'Profiles'} Saved
+                </span>
+              </p>
+            </div>
           </div>
-          <p className="text-muted-foreground">
-            Profiles you've saved for later ({favorites.length})
-          </p>
         </motion.div>
 
-        {/* Search */}
+        {/* Enhanced Search */}
         {favorites.length > 0 && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            className="mb-6"
+            transition={{ duration: 0.6, delay: 0.1, ease: [0.22, 1, 0.36, 1] }}
+            className="max-w-xl"
           >
-            <div className="relative max-w-md">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+            <div className="relative">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" strokeWidth={1.5} />
               <input
                 type="text"
                 placeholder="Search favorites..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full rounded-xl border border-input bg-background pl-12 pr-4 py-3 text-foreground placeholder-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
+                className="w-full rounded-xl border border-input/40 bg-background pl-11 pr-4 py-3 text-sm font-light text-foreground placeholder-muted-foreground focus:border-foreground/20 focus:outline-none focus:ring-2 focus:ring-foreground/10 transition-all tracking-wide"
               />
             </div>
           </motion.div>
         )}
 
-        {/* Favorites Grid */}
+        {/* Enhanced Favorites Grid */}
         {filteredFavorites.length > 0 ? (
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             <AnimatePresence>
@@ -190,112 +200,130 @@ export default function FavoritesPage() {
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.95 }}
-                    transition={{ delay: index * 0.1 }}
-                    className="group rounded-2xl border border-border bg-card p-6 shadow-sm hover:shadow-md transition-all"
+                    transition={{ duration: 0.6, delay: index * 0.05, ease: [0.22, 1, 0.36, 1] }}
+                    whileHover={{ y: -4, scale: 1.01 }}
+                    className="group rounded-2xl border border-border/40 bg-card shadow-sm hover:shadow-xl transition-all duration-500 overflow-hidden"
                   >
-                    <div className="mb-4 flex items-start justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-primary/20 to-primary/10 text-primary font-bold text-xl">
-                          {profile?.userId?.charAt(0) || "U"}
+                    <div className="p-8">
+                      <div className="mb-6 flex items-start justify-between">
+                        <div className="flex items-center gap-4 flex-1 min-w-0">
+                          {profile?.profilePicture ? (
+                            <motion.img
+                              initial={{ scale: 0.9, opacity: 0 }}
+                              animate={{ scale: 1, opacity: 1 }}
+                              transition={{ duration: 0.4 }}
+                              src={profile.profilePicture}
+                              alt={profile?.userId || "Profile"}
+                              className="h-14 w-14 sm:h-16 sm:w-16 rounded-2xl object-cover border-2 border-border/40"
+                            />
+                          ) : (
+                            <div className="flex h-14 w-14 sm:h-16 sm:w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-foreground/10 to-foreground/5 text-foreground font-light text-2xl border-2 border-border/40">
+                              {profile?.userId?.charAt(0) || <User className="h-7 w-7" strokeWidth={1.5} />}
+                            </div>
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <h3 className="text-lg font-light text-foreground truncate tracking-wide">
+                              {profile?.userId}
+                            </h3>
+                            <p className="text-sm font-light text-muted-foreground capitalize tracking-wide mt-1">
+                              {profile?.role}
+                            </p>
+                          </div>
                         </div>
-                        <div>
-                          <h3 className="font-semibold text-foreground text-lg">
-                            {profile?.userId}
-                          </h3>
-                          <p className="text-sm text-muted-foreground capitalize">
-                            {profile?.role}
-                          </p>
-                        </div>
+                        <motion.button
+                          whileHover={{ scale: 1.15, rotate: 5 }}
+                          whileTap={{ scale: 0.9 }}
+                          onClick={() => handleRemoveFavorite(favorite.id)}
+                          className="rounded-xl p-2.5 hover:bg-foreground/5 transition-all duration-300"
+                        >
+                          <Heart className="h-5 w-5 text-foreground fill-foreground" strokeWidth={1.5} />
+                        </motion.button>
                       </div>
-                      <motion.button
-                        whileHover={{ scale: 1.1 }}
-                        whileTap={{ scale: 0.9 }}
-                        onClick={() => handleRemoveFavorite(favorite.id)}
-                        className="rounded-full p-2 hover:bg-destructive/10 transition-colors"
-                      >
-                        <Heart className="h-5 w-5 text-primary fill-primary" />
-                      </motion.button>
-                    </div>
 
-                    {/* Profile Details */}
-                    {roleData && (
-                      <div className="mb-4 space-y-2">
-                        {profile.role === "entrepreneur" && (
-                          <>
-                            {roleData.startupName && (
-                              <p className="font-semibold text-foreground">
-                                {roleData.startupName}
-                              </p>
-                            )}
+                      {/* Profile Details */}
+                      {roleData && (
+                        <div className="mb-6 space-y-4">
+                          {profile.role === "entrepreneur" && (
+                            <>
+                              {roleData.startupName && (
+                                <p className="text-base font-light text-foreground tracking-wide">
+                                  {roleData.startupName}
+                                </p>
+                              )}
+                              <div className="flex flex-wrap gap-2">
+                                {roleData.industry && (
+                                  <span className="inline-flex items-center gap-1.5 rounded-full border border-border/40 bg-background px-3 py-1.5 text-xs font-light text-foreground tracking-wide">
+                                    <Building2 className="h-3 w-3" strokeWidth={1.5} />
+                                    {roleData.industry}
+                                  </span>
+                                )}
+                                {roleData.fundingStage && (
+                                  <span className="inline-flex items-center gap-1.5 rounded-full border border-border/40 bg-background px-3 py-1.5 text-xs font-light text-foreground tracking-wide">
+                                    <TrendingUp className="h-3 w-3" strokeWidth={1.5} />
+                                    {roleData.fundingStage}
+                                  </span>
+                                )}
+                              </div>
+                            </>
+                          )}
+                          {profile.role === "investor" && (
                             <div className="flex flex-wrap gap-2">
-                              {roleData.industry && (
-                                <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
-                                  <Building2 className="h-3 w-3" />
-                                  {roleData.industry}
+                              {roleData.industryFocus && (
+                                <span className="inline-flex items-center gap-1.5 rounded-full border border-border/40 bg-background px-3 py-1.5 text-xs font-light text-foreground tracking-wide">
+                                  <Building2 className="h-3 w-3" strokeWidth={1.5} />
+                                  {roleData.industryFocus}
                                 </span>
                               )}
-                              {roleData.fundingStage && (
-                                <span className="inline-flex items-center gap-1.5 rounded-full bg-secondary px-2.5 py-1 text-xs font-medium text-secondary-foreground">
-                                  <TrendingUp className="h-3 w-3" />
-                                  {roleData.fundingStage}
+                              {roleData.fundingCapacity && (
+                                <span className="inline-flex items-center gap-1.5 rounded-full border border-border/40 bg-background px-3 py-1.5 text-xs font-light text-muted-foreground tracking-wide">
+                                  {roleData.fundingCapacity}
                                 </span>
                               )}
                             </div>
-                          </>
-                        )}
-                        {profile.role === "investor" && (
-                          <div className="flex flex-wrap gap-2">
-                            {roleData.industryFocus && (
-                              <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
-                                <Building2 className="h-3 w-3" />
-                                {roleData.industryFocus}
-                              </span>
-                            )}
-                            {roleData.fundingCapacity && (
-                              <span className="inline-flex items-center gap-1.5 rounded-full bg-secondary px-2.5 py-1 text-xs font-medium text-secondary-foreground">
-                                {roleData.fundingCapacity}
-                              </span>
-                            )}
-                          </div>
-                        )}
-                        {roleData.location && (
-                          <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-                            <MapPin className="h-3 w-3" />
-                            {roleData.location}
-                          </span>
-                        )}
-                      </div>
-                    )}
+                          )}
+                          {roleData.location && (
+                            <span className="inline-flex items-center gap-1.5 text-xs font-light text-muted-foreground tracking-wide">
+                              <MapPin className="h-3 w-3" strokeWidth={1.5} />
+                              {roleData.location}
+                            </span>
+                          )}
+                        </div>
+                      )}
 
-                    {profile?.bio && (
-                      <p className="mb-4 text-sm text-muted-foreground line-clamp-3">
-                        {profile.bio}
+                      {profile?.bio && (
+                        <p className="mb-6 text-sm font-light text-muted-foreground leading-relaxed tracking-wide line-clamp-3">
+                          {profile.bio}
+                        </p>
+                      )}
+
+                      <p className="mb-6 text-xs font-light text-muted-foreground tracking-wide">
+                        Saved {new Date(favorite.createdAt).toLocaleDateString('en-US', { 
+                          month: 'short', 
+                          day: 'numeric', 
+                          year: 'numeric' 
+                        })}
                       </p>
-                    )}
 
-                    <p className="mb-4 text-xs text-muted-foreground">
-                      Saved on {new Date(favorite.createdAt).toLocaleDateString()}
-                    </p>
-
-                    {/* Actions */}
-                    <div className="flex gap-2">
-                      <motion.button
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
-                        onClick={() => handleConnect(profile.id)}
-                        className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-all"
-                      >
-                        <MessageCircle className="h-4 w-4" />
-                        Connect
-                      </motion.button>
-                      <motion.button
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
-                        onClick={() => handleRemoveFavorite(favorite.id)}
-                        className="flex items-center justify-center gap-2 rounded-xl border border-destructive bg-background px-4 py-2.5 text-sm font-medium text-destructive hover:bg-destructive hover:text-destructive-foreground transition-all"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </motion.button>
+                      {/* Enhanced Actions */}
+                      <div className="flex gap-3">
+                        <motion.button
+                          whileHover={{ y: -2, scale: 1.02 }}
+                          whileTap={{ scale: 0.97 }}
+                          onClick={() => handleConnect(profile.id)}
+                          className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-foreground px-5 py-3 text-sm font-light text-background hover:shadow-lg transition-all duration-400 tracking-wide"
+                        >
+                          <MessageCircle className="h-4 w-4" strokeWidth={1.5} />
+                          Connect
+                        </motion.button>
+                        <motion.button
+                          whileHover={{ y: -2, scale: 1.02 }}
+                          whileTap={{ scale: 0.97 }}
+                          onClick={() => handleRemoveFavorite(favorite.id)}
+                          className="flex items-center justify-center gap-2 rounded-xl border border-border/40 bg-background px-5 py-3 text-sm font-light text-foreground hover:bg-muted/20 hover:border-border/60 transition-all duration-400 tracking-wide"
+                        >
+                          <Trash2 className="h-4 w-4" strokeWidth={1.5} />
+                        </motion.button>
+                      </div>
                     </div>
                   </motion.div>
                 );
@@ -304,34 +332,39 @@ export default function FavoritesPage() {
           </div>
         ) : (
           <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.2 }}
-            className="text-center py-20 rounded-2xl border border-border bg-card"
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.6, delay: 0.2, ease: [0.22, 1, 0.36, 1] }}
+            className="text-center py-20 sm:py-28 rounded-2xl sm:rounded-3xl border border-border/40 bg-card"
           >
-            <div className="mx-auto h-20 w-20 rounded-full bg-primary/10 flex items-center justify-center mb-4">
+            <motion.div
+              animate={{ y: [0, -10, 0] }}
+              transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+              className="mx-auto h-20 w-20 sm:h-24 sm:w-24 rounded-full bg-gradient-to-br from-foreground/10 to-foreground/5 flex items-center justify-center mb-6"
+            >
               {searchQuery ? (
-                <Search className="h-10 w-10 text-muted-foreground" />
+                <Search className="h-10 w-10 sm:h-12 sm:w-12 text-muted-foreground" strokeWidth={1.5} />
               ) : (
-                <Heart className="h-10 w-10 text-muted-foreground" />
+                <Heart className="h-10 w-10 sm:h-12 sm:w-12 text-muted-foreground" strokeWidth={1.5} />
               )}
-            </div>
-            <h3 className="text-xl font-semibold text-foreground mb-2">
+            </motion.div>
+            <h3 className="text-xl sm:text-2xl font-light text-foreground mb-3 tracking-wide">
               {searchQuery ? "No results found" : "No favorites yet"}
             </h3>
-            <p className="text-muted-foreground mb-6">
+            <p className="text-sm font-light text-muted-foreground mb-8 max-w-md mx-auto leading-relaxed tracking-wide px-4">
               {searchQuery 
-                ? "Try adjusting your search query"
-                : "Start browsing to save profiles you're interested in!"}
+                ? "Try adjusting your search query to find what you're looking for"
+                : "Start browsing profiles and save the ones you're interested in for easy access later"}
             </p>
             {!searchQuery && (
               <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
+                whileHover={{ scale: 1.03, y: -2 }}
+                whileTap={{ scale: 0.97 }}
                 onClick={() => router.push("/browse")}
-                className="rounded-xl bg-primary px-6 py-3 font-semibold text-primary-foreground hover:bg-primary/90 transition-all"
+                className="inline-flex items-center gap-2 rounded-xl bg-foreground px-8 py-3 text-sm font-light text-background hover:shadow-lg transition-all duration-400 tracking-wide"
               >
                 Browse Profiles
+                <Sparkles className="h-4 w-4" strokeWidth={1.5} />
               </motion.button>
             )}
           </motion.div>
