@@ -56,15 +56,26 @@ export default function DashboardPage() {
   const [notifications, setNotifications] = useState<any[]>([]);
   const [processingRequest, setProcessingRequest] = useState<number | null>(null);
 
+  // CRITICAL FIX: Only redirect if session is definitely null after loading completes
   useEffect(() => {
     if (!isPending && !session?.user) {
-      router.push("/login");
+      // Double-check localStorage has token before redirecting
+      const token = localStorage.getItem("bearer_token");
+      if (!token) {
+        router.push("/login");
+      }
     }
   }, [session, isPending, router]);
 
   useEffect(() => {
     const fetchDashboardData = async () => {
-      if (!session?.user) return;
+      // Wait for session to be loaded
+      if (isPending) return;
+      
+      if (!session?.user) {
+        setIsLoading(false);
+        return;
+      }
 
       try {
         const token = localStorage.getItem("bearer_token");
@@ -127,7 +138,7 @@ export default function DashboardPage() {
     };
 
     fetchDashboardData();
-  }, [session, router]);
+  }, [session, isPending, router]);
 
   const handleConnectionRequest = async (connectionId: number, action: "accepted" | "rejected") => {
     setProcessingRequest(connectionId);

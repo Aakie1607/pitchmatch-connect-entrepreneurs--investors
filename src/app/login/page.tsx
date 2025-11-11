@@ -11,7 +11,7 @@ import { Mail, Lock, Eye, EyeOff, Loader2, ArrowRight } from "lucide-react";
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { data: session, isPending } = useSession();
+  const { data: session, isPending, refetch } = useSession();
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
@@ -46,15 +46,23 @@ function LoginForm() {
 
       if (error?.code) {
         toast.error("Invalid email or password. Please make sure you have already registered an account and try again.");
+        setIsLoading(false);
         return;
       }
 
+      // CRITICAL FIX: Refetch session to update state before navigation
+      await refetch();
+      
+      // Small delay to ensure session is fully loaded
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
       const redirect = searchParams.get("redirect") || "/dashboard";
-      router.push(redirect);
       toast.success("Welcome back!");
+      
+      // Use replace to prevent back button issues
+      router.replace(redirect);
     } catch (error) {
       toast.error("An error occurred. Please try again.");
-    } finally {
       setIsLoading(false);
     }
   };
